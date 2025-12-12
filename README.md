@@ -173,19 +173,6 @@ The CloudPeAPI class provides these methods:
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## Development with Claude Code
-
-This project is developed using Claude Code. To contribute:
-
-```bash
-# Clone the repository
-git clone https://github.com/Leapswitch-Networks/cloudpe-whmcs.git
-cd cloudpe-whmcs
-
-# Open with Claude Code for AI-assisted development
-claude
-```
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
