@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.24
+ * @version 3.25
  */
 
 class CloudPeAPI
@@ -333,7 +333,7 @@ class CloudPeAPI
             $serverData = [
                 'server' => [
                     'name' => $params['name'],
-                    'flavorRef' => $params['flavor_id'],
+                    'flavorRef' => $params['flavorRef'] ?? $params['flavor_id'] ?? null,
                     'networks' => $networks,
                     'metadata' => $params['metadata'] ?? [],
                 ],
