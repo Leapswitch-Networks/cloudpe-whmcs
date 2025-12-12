@@ -72,6 +72,23 @@ rm -rf temp_cloudpe
    - **Network**: Select or enter network UUID
    - **Security Groups**: Comma-separated list
 
+### Custom Fields Setup
+
+For each CloudPe product, you must create 3 custom fields to store VM information:
+
+1. Go to **Setup → Products/Services → Products/Services**
+2. Edit your CloudPe product
+3. Go to **Custom Fields** tab
+4. Create the following fields:
+
+| Field Name | Field Type | Description | Admin Only |
+|------------|------------|-------------|------------|
+| `VM ID` | Text Box | Stores the OpenStack server UUID | Yes |
+| `Public IPv4` | Text Box | Stores the VM's public IPv4 address | Yes |
+| `Public IPv6` | Text Box | Stores the VM's public IPv6 address | Yes |
+
+**Important:** The field names must match exactly as shown above (case-sensitive).
+
 ### CloudPe Manager (Admin Module)
 
 Access via **Addons → CloudPe Manager**:
