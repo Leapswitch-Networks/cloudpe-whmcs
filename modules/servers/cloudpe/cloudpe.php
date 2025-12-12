@@ -5,7 +5,7 @@
  * Provisions virtual machines on CloudPe/OpenStack infrastructure
  * using Application Credentials authentication.
  * 
- * @version 3.20
+ * @version 3.23
  */
 
 if (!defined("WHMCS")) {
@@ -712,15 +712,48 @@ function cloudpe_AdminStart(array $params): string
 {
     try {
         $api = new CloudPeAPI($params);
+        $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'AdminStart', ['server_id' => $serverId], '', 'Starting');
         $result = $api->startServer($serverId);
-        logModuleCall('cloudpe', 'AdminStart', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            logModuleCall('cloudpe', 'AdminStart', ['server_id' => $serverId], $result, 'Failed');
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become ACTIVE (max 30 seconds)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'ACTIVE') {
+                    // Sync IPs
+                    $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv4', $ips['ipv4']);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv6', $ips['ipv6']);
+
+                    $dedicatedIp = $ips['ipv4'] ?: $ips['ipv6'];
+                    Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
+                        'dedicatedip' => $dedicatedIp,
+                        'assignedips' => trim($ips['ipv4'] . "\n" . $ips['ipv6']),
+                    ]);
+
+                    logModuleCall('cloudpe', 'AdminStart', ['server_id' => $serverId], 'VM is now ACTIVE', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -731,14 +764,35 @@ function cloudpe_AdminStop(array $params): string
     try {
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'AdminStop', ['server_id' => $serverId], '', 'Stopping');
         $result = $api->stopServer($serverId);
-        logModuleCall('cloudpe', 'AdminStop', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            logModuleCall('cloudpe', 'AdminStop', ['server_id' => $serverId], $result, 'Failed');
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become SHUTOFF (max 30 seconds)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'SHUTOFF') {
+                    logModuleCall('cloudpe', 'AdminStop', ['server_id' => $serverId], 'VM is now SHUTOFF', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -748,15 +802,48 @@ function cloudpe_AdminRestart(array $params): string
 {
     try {
         $api = new CloudPeAPI($params);
+        $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'AdminRestart', ['server_id' => $serverId], '', 'Restarting');
         $result = $api->rebootServer($serverId);
-        logModuleCall('cloudpe', 'AdminRestart', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            logModuleCall('cloudpe', 'AdminRestart', ['server_id' => $serverId], $result, 'Failed');
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become ACTIVE after reboot (max 30 seconds)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'ACTIVE') {
+                    // Sync IPs
+                    $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv4', $ips['ipv4']);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv6', $ips['ipv6']);
+
+                    $dedicatedIp = $ips['ipv4'] ?: $ips['ipv6'];
+                    Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
+                        'dedicatedip' => $dedicatedIp,
+                        'assignedips' => trim($ips['ipv4'] . "\n" . $ips['ipv6']),
+                    ]);
+
+                    logModuleCall('cloudpe', 'AdminRestart', ['server_id' => $serverId], 'VM is now ACTIVE', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -872,14 +959,47 @@ function cloudpe_ClientStart(array $params): string
 {
     try {
         $api = new CloudPeAPI($params);
+        $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'ClientStart', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Starting');
         $result = $api->startServer($serverId);
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become ACTIVE (max 30 seconds for client actions)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'ACTIVE') {
+                    // Sync IPs and status
+                    $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv4', $ips['ipv4']);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv6', $ips['ipv6']);
+
+                    $dedicatedIp = $ips['ipv4'] ?: $ips['ipv6'];
+                    Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
+                        'dedicatedip' => $dedicatedIp,
+                        'assignedips' => trim($ips['ipv4'] . "\n" . $ips['ipv6']),
+                    ]);
+
+                    logModuleCall('cloudpe', 'ClientStart', ['server_id' => $serverId], 'VM is now ACTIVE', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -890,13 +1010,34 @@ function cloudpe_ClientStop(array $params): string
     try {
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'ClientStop', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Stopping');
         $result = $api->stopServer($serverId);
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become SHUTOFF (max 30 seconds for client actions)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'SHUTOFF') {
+                    logModuleCall('cloudpe', 'ClientStop', ['server_id' => $serverId], 'VM is now SHUTOFF', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -906,14 +1047,47 @@ function cloudpe_ClientRestart(array $params): string
 {
     try {
         $api = new CloudPeAPI($params);
+        $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) return 'No VM ID found';
-        
+
         logModuleCall('cloudpe', 'ClientRestart', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Restarting');
         $result = $api->rebootServer($serverId);
-        
-        return $result['success'] ? 'success' : ('Failed: ' . ($result['error'] ?? 'Unknown error'));
+
+        if (!$result['success']) {
+            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+        }
+
+        // Wait for VM to become ACTIVE after reboot (max 30 seconds for client actions)
+        $maxWait = 30;
+        $waited = 0;
+        while ($waited < $maxWait) {
+            sleep(3);
+            $waited += 3;
+
+            $statusResult = $api->getServer($serverId);
+            if ($statusResult['success']) {
+                $status = $statusResult['server']['status'] ?? '';
+                if ($status === 'ACTIVE') {
+                    // Sync IPs
+                    $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv4', $ips['ipv4']);
+                    updateServiceCustomField($params['serviceid'], $params['pid'], 'Public IPv6', $ips['ipv6']);
+
+                    $dedicatedIp = $ips['ipv4'] ?: $ips['ipv6'];
+                    Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
+                        'dedicatedip' => $dedicatedIp,
+                        'assignedips' => trim($ips['ipv4'] . "\n" . $ips['ipv6']),
+                    ]);
+
+                    logModuleCall('cloudpe', 'ClientRestart', ['server_id' => $serverId], 'VM is now ACTIVE', 'Success');
+                    break;
+                }
+            }
+        }
+
+        return 'success';
     } catch (Exception $e) {
         return 'Error: ' . $e->getMessage();
     }
@@ -1051,6 +1225,7 @@ function cloudpe_ClientArea(array $params): array
         return [
             'templatefile' => 'templates/overview',
             'vars' => [
+                'serviceid' => $params['serviceid'],
                 'server_id' => $serverId,
                 'status' => $server['status'] ?? 'Unknown',
                 'status_label' => $helper->getStatusLabel($server['status'] ?? ''),

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.23] - 2025-12-12
+
+### Fixed
+- **Admin Area**: Start/Stop/Restart VM actions now work correctly with status sync
+
+### Changed
+- Admin Start action now waits for VM to reach ACTIVE status and syncs IPs
+- Admin Stop action now waits for VM to reach SHUTOFF status
+- Admin Restart action now waits for VM to reach ACTIVE status and syncs IPs
+- Consistent behavior between client and admin VM controls
+
+## [3.22] - 2025-12-12
+
+### Fixed
+- **Client Dashboard**: Start/Stop/Restart VM actions now work correctly from client area
+- Fixed `serviceid` variable not being passed to client area template (caused broken action URLs)
+
+### Changed
+- Client Start action now waits for VM to reach ACTIVE status before returning (max 30s)
+- Client Stop action now waits for VM to reach SHUTOFF status before returning (max 30s)
+- Client Restart action now waits for VM to reach ACTIVE status before returning (max 30s)
+- Client Start and Restart actions now automatically sync IPs after VM status change
+
 ## [3.21] - 2024-12-12
 
 ### Fixed
