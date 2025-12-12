@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.25
+ * @version 3.26
  */
 
 class CloudPeAPI
@@ -335,9 +335,13 @@ class CloudPeAPI
                     'name' => $params['name'],
                     'flavorRef' => $params['flavorRef'] ?? $params['flavor_id'] ?? null,
                     'networks' => $networks,
-                    'metadata' => $params['metadata'] ?? [],
                 ],
             ];
+
+            // Only include metadata if provided (OpenStack requires object {}, not array [])
+            if (!empty($params['metadata'])) {
+                $serverData['server']['metadata'] = (object)$params['metadata'];
+            }
             
             if (!isset($params['block_device_mapping_v2'])) {
                 $serverData['server']['imageRef'] = $params['image_id'];

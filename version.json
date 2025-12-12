@@ -1,10 +1,10 @@
 {
-    "version": "3.25",
+    "version": "3.26",
     "released": "2025-12-12",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.25/cloudpe-whmcs-module-v3.25.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.26/cloudpe-whmcs-module-v3.26.zip",
     "changelog": [
-        "Fixed flavorRef parameter name mismatch causing VM creation failure"
+        "Fixed empty metadata causing VM creation failure (OpenStack requires {} not [])"
     ]
 }
