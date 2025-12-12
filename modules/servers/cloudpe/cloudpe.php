@@ -268,7 +268,7 @@ function cloudpe_CreateAccount(array $params): string
         ];
         
         if (!empty($securityGroupId)) {
-            $serverData['security_groups'] = [['name' => $securityGroupId]];
+            $serverData['security_groups'] = [$securityGroupId];
         }
         
         logModuleCall('cloudpe', 'CreateAccount', $serverData, '', 'Sending create request');
