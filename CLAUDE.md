@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-This is the CloudPe WHMCS Module for Virtuozzo Hybrid Infrastructure (VHI). It enables WHMCS resellers to provision and manage virtual machines through CloudPe's OpenStack-based infrastructure.
+This is the CloudPe WHMCS Module. It enables WHMCS resellers to provision and manage virtual machines through CloudPe's OpenStack-based infrastructure.
 
 ## Key Architecture
 

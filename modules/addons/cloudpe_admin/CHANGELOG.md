@@ -104,7 +104,7 @@ https://cloudpe.com/modules/whmcs/cloudpe-whmcs-module-latest.zip
 - **Enhanced VNC Console**: Added multiple fallback methods
   - remote-consoles endpoint (microversion 2.6+)
   - os-getVNCConsole (legacy)
-  - getVNCConsole (Virtuozzo specific)
+  - getVNCConsole (platform specific)
   - get_vnc_console (underscore format)
   - os-getSPICEConsole (SPICE fallback)
   - os-getSerialConsole (Serial fallback)
@@ -292,7 +292,7 @@ https://cloudpe.com/modules/whmcs/cloudpe-whmcs-module-latest.zip
 
 ## Version 3.0 (2025-12-10)
 ### Major Rewrite
-- Removed all Virtuozzo branding
+- Removed all legacy branding
 - Implemented WHMCS Loader Functions for dynamic dropdowns
 - Changed to public network with IPv4/IPv6 selection
 - Simplified to one product per region architecture
