@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.28
+ * @version 3.29
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.28');
+define('CLOUDPE_MODULE_VERSION', '3.29');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -992,6 +992,18 @@ function cloudpe_admin_load_flavors($serverId)
 function cloudpe_admin_save_setting($serverId, $key, $value)
 {
     try {
+        // Ensure table exists
+        if (!Capsule::schema()->hasTable('mod_cloudpe_settings')) {
+            Capsule::schema()->create('mod_cloudpe_settings', function ($table) {
+                $table->increments('id');
+                $table->integer('server_id');
+                $table->string('setting_key', 100);
+                $table->text('setting_value')->nullable();
+                $table->timestamps();
+                $table->unique(['server_id', 'setting_key']);
+            });
+        }
+
         Capsule::table('mod_cloudpe_settings')->updateOrInsert(
             ['server_id' => $serverId, 'setting_key' => $key],
             ['setting_value' => $value, 'updated_at' => date('Y-m-d H:i:s')]
@@ -1039,12 +1051,24 @@ function cloudpe_admin_render_images($modulelink, $serverId, $currencies)
     var currencies = ' . json_encode($currencies) . ';
     
     function loadImages() {
-        $("#images-container").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Loading...</p>");
-        $.get(moduleLink + "&ajax=load_images&server_id=" + serverId, function(data) {
-            if (data.success) {
-                renderImages(data.images);
-            } else {
-                $("#images-container").html("<div class=\"alert alert-danger\">" + data.error + "</div>");
+        $("#images-container").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Loading images from server...</p>");
+        $.ajax({
+            url: moduleLink + "&ajax=load_images&server_id=" + serverId,
+            type: "GET",
+            dataType: "json",
+            success: function(data) {
+                if (data.success) {
+                    if (data.images && data.images.length > 0) {
+                        renderImages(data.images);
+                    } else {
+                        $("#images-container").html("<div class=\"alert alert-warning\">No images found on this server.</div>");
+                    }
+                } else {
+                    $("#images-container").html("<div class=\"alert alert-danger\"><strong>Error:</strong> " + (data.error || "Unknown error") + "</div>");
+                }
+            },
+            error: function(xhr, status, error) {
+                $("#images-container").html("<div class=\"alert alert-danger\"><strong>Request failed:</strong> " + error + "<br>Status: " + status + "</div>");
             }
         });
     }
@@ -1086,7 +1110,7 @@ function cloudpe_admin_render_images($modulelink, $serverId, $currencies)
         var selected = [];
         var names = {};
         var prices = {};
-        
+
         $(".img-check:checked").each(function() { selected.push($(this).data("id")); });
         $(".img-name").each(function() { names[$(this).data("id")] = $(this).val(); });
         $(".img-price").each(function() {
@@ -1095,12 +1119,35 @@ function cloudpe_admin_render_images($modulelink, $serverId, $currencies)
             if (!prices[id]) prices[id] = {};
             prices[id][curr] = $(this).val();
         });
-        
-        $.post(moduleLink + "&ajax=save_images&server_id=" + serverId, {data: JSON.stringify(selected)});
-        $.post(moduleLink + "&ajax=save_image_names&server_id=" + serverId, {data: JSON.stringify(names)});
-        $.post(moduleLink + "&ajax=save_image_prices&server_id=" + serverId, {data: JSON.stringify(prices)}, function() {
-            alert("Images saved!");
-        });
+
+        var saveCount = 0;
+        var saveErrors = [];
+
+        function checkSaveComplete() {
+            saveCount++;
+            if (saveCount >= 3) {
+                if (saveErrors.length > 0) {
+                    alert("Save errors: " + saveErrors.join(", "));
+                } else {
+                    alert("Images saved successfully! (" + selected.length + " selected)");
+                }
+            }
+        }
+
+        $.post(moduleLink + "&ajax=save_images&server_id=" + serverId, {data: JSON.stringify(selected)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save selection");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
+
+        $.post(moduleLink + "&ajax=save_image_names&server_id=" + serverId, {data: JSON.stringify(names)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save names");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
+
+        $.post(moduleLink + "&ajax=save_image_prices&server_id=" + serverId, {data: JSON.stringify(prices)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save prices");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
     }
     </script>';
 }
@@ -1130,12 +1177,24 @@ function cloudpe_admin_render_flavors($modulelink, $serverId, $currencies)
     var currencies = ' . json_encode($currencies) . ';
     
     function loadFlavors() {
-        $("#flavors-container").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Loading...</p>");
-        $.get(moduleLink + "&ajax=load_flavors&server_id=" + serverId, function(data) {
-            if (data.success) {
-                renderFlavors(data.flavors);
-            } else {
-                $("#flavors-container").html("<div class=\"alert alert-danger\">" + data.error + "</div>");
+        $("#flavors-container").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Loading flavors from server...</p>");
+        $.ajax({
+            url: moduleLink + "&ajax=load_flavors&server_id=" + serverId,
+            type: "GET",
+            dataType: "json",
+            success: function(data) {
+                if (data.success) {
+                    if (data.flavors && data.flavors.length > 0) {
+                        renderFlavors(data.flavors);
+                    } else {
+                        $("#flavors-container").html("<div class=\"alert alert-warning\">No flavors found on this server.</div>");
+                    }
+                } else {
+                    $("#flavors-container").html("<div class=\"alert alert-danger\"><strong>Error:</strong> " + (data.error || "Unknown error") + "</div>");
+                }
+            },
+            error: function(xhr, status, error) {
+                $("#flavors-container").html("<div class=\"alert alert-danger\"><strong>Request failed:</strong> " + error + "<br>Status: " + status + "</div>");
             }
         });
     }
@@ -1168,11 +1227,19 @@ function cloudpe_admin_render_flavors($modulelink, $serverId, $currencies)
         $("#flavors-container").html(html);
     }
     
+    function cloudpeSelectAll(type) {
+        $(".flv-check").prop("checked", true);
+    }
+
+    function cloudpeSelectNone(type) {
+        $(".flv-check").prop("checked", false);
+    }
+
     function saveFlavors() {
         var selected = [];
         var names = {};
         var prices = {};
-        
+
         $(".flv-check:checked").each(function() { selected.push($(this).data("id")); });
         $(".flv-name").each(function() { names[$(this).data("id")] = $(this).val(); });
         $(".flv-price").each(function() {
@@ -1181,12 +1248,35 @@ function cloudpe_admin_render_flavors($modulelink, $serverId, $currencies)
             if (!prices[id]) prices[id] = {};
             prices[id][curr] = $(this).val();
         });
-        
-        $.post(moduleLink + "&ajax=save_flavors&server_id=" + serverId, {data: JSON.stringify(selected)});
-        $.post(moduleLink + "&ajax=save_flavor_names&server_id=" + serverId, {data: JSON.stringify(names)});
-        $.post(moduleLink + "&ajax=save_flavor_prices&server_id=" + serverId, {data: JSON.stringify(prices)}, function() {
-            alert("Flavors saved!");
-        });
+
+        var saveCount = 0;
+        var saveErrors = [];
+
+        function checkSaveComplete() {
+            saveCount++;
+            if (saveCount >= 3) {
+                if (saveErrors.length > 0) {
+                    alert("Save errors: " + saveErrors.join(", "));
+                } else {
+                    alert("Flavors saved successfully! (" + selected.length + " selected)");
+                }
+            }
+        }
+
+        $.post(moduleLink + "&ajax=save_flavors&server_id=" + serverId, {data: JSON.stringify(selected)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save selection");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
+
+        $.post(moduleLink + "&ajax=save_flavor_names&server_id=" + serverId, {data: JSON.stringify(names)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save names");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
+
+        $.post(moduleLink + "&ajax=save_flavor_prices&server_id=" + serverId, {data: JSON.stringify(prices)}, function(r) {
+            if (!r.success) saveErrors.push(r.error || "Failed to save prices");
+            checkSaveComplete();
+        }).fail(function() { saveErrors.push("Network error"); checkSaveComplete(); });
     }
     </script>';
 }
@@ -1354,33 +1444,41 @@ function cloudpe_admin_create_config_group($data)
         $includeOs = !empty($data['include_os']);
         $includeSize = !empty($data['include_size']);
         $includeDisk = !empty($data['include_disk']);
-        
+
+        // Debug: Check what settings exist for this server
+        $debugInfo = [];
+        $debugInfo['server_id'] = $serverId;
+
         $multQ = floatval($data['mult_q'] ?? 3);
         $multS = floatval($data['mult_s'] ?? 6);
         $multA = floatval($data['mult_a'] ?? 12);
         $multB = floatval($data['mult_b'] ?? 24);
         $multT = floatval($data['mult_t'] ?? 36);
-        
+
         $currencies = Capsule::table('tblcurrencies')->get();
-        
+
         // Create group
         $groupId = Capsule::table('tblproductconfiggroups')->insertGetId([
             'name' => $groupName,
             'description' => 'Created by CloudPe Manager',
         ]);
-        
+
         // Link products
         foreach ($products as $pid) {
             Capsule::table('tblproductconfiglinks')->insert(['gid' => $groupId, 'pid' => $pid]);
         }
-        
+
         $order = 0;
-        
+        $counts = ['images' => 0, 'flavors' => 0, 'disks' => 0];
+
         // Add OS options
         if ($includeOs) {
-            $images = json_decode(cloudpe_admin_get_setting($serverId, 'selected_images') ?: '[]', true);
+            $imagesRaw = cloudpe_admin_get_setting($serverId, 'selected_images');
+            $images = json_decode($imagesRaw ?: '[]', true);
             $imageNames = json_decode(cloudpe_admin_get_setting($serverId, 'image_names') ?: '{}', true);
             $imagePrices = json_decode(cloudpe_admin_get_setting($serverId, 'image_prices') ?: '{}', true);
+            $debugInfo['images_raw'] = $imagesRaw;
+            $debugInfo['images_count'] = count($images);
             
             if (!empty($images)) {
                 $optionId = Capsule::table('tblproductconfigoptions')->insertGetId([
@@ -1402,7 +1500,8 @@ function cloudpe_admin_create_config_group($data)
                         'sortorder' => $subOrder++,
                         'hidden' => 0,
                     ]);
-                    
+                    $counts['images']++;
+
                     foreach ($currencies as $curr) {
                         $monthly = floatval($imagePrices[$imgId][$curr->id] ?? 0);
                         Capsule::table('tblpricing')->insert([
@@ -1421,13 +1520,16 @@ function cloudpe_admin_create_config_group($data)
                 }
             }
         }
-        
+
         // Add Size options
         if ($includeSize) {
-            $flavors = json_decode(cloudpe_admin_get_setting($serverId, 'selected_flavors') ?: '[]', true);
+            $flavorsRaw = cloudpe_admin_get_setting($serverId, 'selected_flavors');
+            $flavors = json_decode($flavorsRaw ?: '[]', true);
             $flavorNames = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_names') ?: '{}', true);
             $flavorPrices = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_prices') ?: '{}', true);
-            
+            $debugInfo['flavors_raw'] = $flavorsRaw;
+            $debugInfo['flavors_count'] = count($flavors);
+
             if (!empty($flavors)) {
                 $optionId = Capsule::table('tblproductconfigoptions')->insertGetId([
                     'gid' => $groupId,
@@ -1448,7 +1550,8 @@ function cloudpe_admin_create_config_group($data)
                         'sortorder' => $subOrder++,
                         'hidden' => 0,
                     ]);
-                    
+                    $counts['flavors']++;
+
                     foreach ($currencies as $curr) {
                         $monthly = floatval($flavorPrices[$flvId][$curr->id] ?? 0);
                         Capsule::table('tblpricing')->insert([
@@ -1467,11 +1570,14 @@ function cloudpe_admin_create_config_group($data)
                 }
             }
         }
-        
+
         // Add Disk options
         if ($includeDisk) {
-            $disks = json_decode(cloudpe_admin_get_setting($serverId, 'disk_sizes') ?: '[]', true);
-            
+            $disksRaw = cloudpe_admin_get_setting($serverId, 'disk_sizes');
+            $disks = json_decode($disksRaw ?: '[]', true);
+            $debugInfo['disks_raw'] = $disksRaw;
+            $debugInfo['disks_count'] = count($disks);
+
             if (!empty($disks)) {
                 $optionId = Capsule::table('tblproductconfigoptions')->insertGetId([
                     'gid' => $groupId,
@@ -1493,7 +1599,8 @@ function cloudpe_admin_create_config_group($data)
                         'sortorder' => $subOrder++,
                         'hidden' => 0,
                     ]);
-                    
+                    $counts['disks']++;
+
                     foreach ($currencies as $curr) {
                         $monthly = floatval($disk['prices'][$curr->id] ?? 0);
                         Capsule::table('tblpricing')->insert([
@@ -1512,9 +1619,28 @@ function cloudpe_admin_create_config_group($data)
                 }
             }
         }
-        
-        return ['success' => true, 'message' => "Config group '{$groupName}' created with ID {$groupId}"];
-        
+
+        // Build detailed message
+        $totalOptions = $counts['images'] + $counts['flavors'] + $counts['disks'];
+        $details = [];
+        if ($counts['images'] > 0) $details[] = "{$counts['images']} images";
+        if ($counts['flavors'] > 0) $details[] = "{$counts['flavors']} flavors";
+        if ($counts['disks'] > 0) $details[] = "{$counts['disks']} disk sizes";
+
+        if ($totalOptions === 0) {
+            // Return debug info if nothing was added
+            return [
+                'success' => true,
+                'message' => "Config group '{$groupName}' created (ID: {$groupId}) but NO options were added. Please save images/flavors first on the respective tabs.",
+                'debug' => $debugInfo,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => "Config group '{$groupName}' created (ID: {$groupId}) with " . implode(', ', $details),
+        ];
+
     } catch (\Exception $e) {
         return ['success' => false, 'error' => $e->getMessage()];
     }
