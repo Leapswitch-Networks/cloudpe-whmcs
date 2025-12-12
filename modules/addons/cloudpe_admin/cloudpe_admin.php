@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.27
+ * @version 3.28
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.27');
+define('CLOUDPE_MODULE_VERSION', '3.28');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -70,6 +70,71 @@ function cloudpe_admin_activate()
 function cloudpe_admin_deactivate()
 {
     return ['status' => 'success', 'description' => 'CloudPe Manager deactivated.'];
+}
+
+/**
+ * Fetch all releases from GitHub
+ */
+function cloudpe_admin_get_all_releases()
+{
+    try {
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => 'https://api.github.com/repos/Leapswitch-Networks/cloudpe-whmcs/releases',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_USERAGENT => 'CloudPe-WHMCS/' . CLOUDPE_MODULE_VERSION,
+            CURLOPT_HTTPHEADER => ['Accept: application/vnd.github.v3+json'],
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($error || $httpCode !== 200) {
+            return ['success' => false, 'error' => $error ?: "HTTP {$httpCode}"];
+        }
+
+        $releases = json_decode($response, true);
+
+        if (!is_array($releases)) {
+            return ['success' => false, 'error' => 'Invalid response from GitHub'];
+        }
+
+        $formattedReleases = [];
+        foreach ($releases as $release) {
+            // Find the zip asset
+            $downloadUrl = '';
+            foreach ($release['assets'] ?? [] as $asset) {
+                if (strpos($asset['name'], '.zip') !== false) {
+                    $downloadUrl = $asset['browser_download_url'];
+                    break;
+                }
+            }
+
+            $formattedReleases[] = [
+                'version' => ltrim($release['tag_name'], 'v'),
+                'tag' => $release['tag_name'],
+                'name' => $release['name'],
+                'body' => $release['body'] ?? '',
+                'published_at' => date('Y-m-d H:i', strtotime($release['published_at'])),
+                'download_url' => $downloadUrl,
+                'html_url' => $release['html_url'],
+                'prerelease' => $release['prerelease'] ?? false,
+            ];
+        }
+
+        return [
+            'success' => true,
+            'releases' => $formattedReleases,
+            'current_version' => CLOUDPE_MODULE_VERSION,
+        ];
+
+    } catch (\Exception $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
 }
 
 /**
@@ -325,7 +390,11 @@ function cloudpe_admin_output($vars)
                     echo json_encode(cloudpe_admin_install_update($downloadUrl));
                 }
                 exit;
-                
+
+            case 'get_releases':
+                echo json_encode(cloudpe_admin_get_all_releases());
+                exit;
+
             case 'load_images':
                 echo json_encode(cloudpe_admin_load_images($_REQUEST['server_id'] ?? 0));
                 exit;
@@ -438,7 +507,7 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
     echo '<div class="panel panel-default">';
     echo '<div class="panel-heading"><h3 class="panel-title"><i class="fas fa-cloud-download-alt"></i> Module Updates</h3></div>';
     echo '<div class="panel-body">';
-    
+
     echo '<div class="row">';
     echo '<div class="col-md-6">';
     echo '<h4>Current Installation</h4>';
@@ -448,7 +517,7 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
     echo '<tr><td><strong>WHMCS Version</strong></td><td>' . $GLOBALS['CONFIG']['Version'] . '</td></tr>';
     echo '</table>';
     echo '</div>';
-    
+
     echo '<div class="col-md-6">';
     echo '<h4>Update Status</h4>';
     echo '<div id="update-status">';
@@ -456,33 +525,44 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
     echo '</div>';
     echo '</div>';
     echo '</div>';
-    
+
     echo '<hr>';
-    
+
     echo '<div id="update-actions" style="display:none;">';
     echo '<h4>Available Update</h4>';
     echo '<div id="update-info"></div>';
     echo '<button type="button" class="btn btn-success btn-lg" id="btn-install-update" style="display:none;">';
     echo '<i class="fas fa-download"></i> Download & Install Update</button>';
     echo '<div id="update-progress" style="display:none; margin-top: 15px;">';
-    echo '<div class="progress"><div class="progress-bar progress-bar-striped active" style="width: 100%">Installing update...</div></div>';
+    echo '<div class="progress"><div class="progress-bar progress-bar-striped active" style="width: 100%">Installing...</div></div>';
     echo '</div>';
     echo '</div>';
-    
+
     echo '<div id="update-result" style="display:none; margin-top: 15px;"></div>';
-    
+
     echo '</div></div>';
-    
+
+    // All Releases Panel
+    echo '<div class="panel panel-default">';
+    echo '<div class="panel-heading"><h3 class="panel-title"><i class="fas fa-history"></i> All Releases</h3></div>';
+    echo '<div class="panel-body">';
+    echo '<p class="text-muted">View all available releases with release notes. You can install any version including downgrades.</p>';
+    echo '<button class="btn btn-default" onclick="loadAllReleases()"><i class="fas fa-sync"></i> Load Releases</button>';
+    echo '<div id="all-releases-container" style="margin-top: 15px;"></div>';
+    echo '</div></div>';
+
     // JavaScript for update functionality
     echo '<script>
     var updateUrl = ' . json_encode($updateUrl) . ';
     var moduleLink = ' . json_encode($modulelink) . ';
+    var currentVersion = ' . json_encode(CLOUDPE_MODULE_VERSION) . ';
     var downloadUrl = "";
-    
+
     $(document).ready(function() {
         checkForUpdates();
+        loadAllReleases();
     });
-    
+
     function checkForUpdates() {
         $.ajax({
             url: moduleLink + "&ajax=check_update",
@@ -497,13 +577,13 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
                             \'<strong>Update Available!</strong> Version \' + data.latest_version + \' is available.\' +
                             \'</div>\'
                         );
-                        
+
                         var info = \'<table class="table table-bordered">\';
                         info += \'<tr><td><strong>Latest Version</strong></td><td><span class="label label-success">\' + data.latest_version + \'</span></td></tr>\';
                         info += \'<tr><td><strong>Your Version</strong></td><td><span class="label label-default">\' + data.current_version + \'</span></td></tr>\';
                         info += \'<tr><td><strong>Released</strong></td><td>\' + data.released + \'</td></tr>\';
                         info += \'</table>\';
-                        
+
                         if (data.changelog && data.changelog.length > 0) {
                             info += \'<h5>Changelog:</h5><ul>\';
                             data.changelog.forEach(function(item) {
@@ -511,11 +591,11 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
                             });
                             info += \'</ul>\';
                         }
-                        
+
                         $("#update-info").html(info);
                         $("#update-actions").show();
                         downloadUrl = data.download_url;
-                        
+
                         if (downloadUrl) {
                             $("#btn-install-update").show();
                         }
@@ -548,22 +628,212 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
             }
         });
     }
-    
+
+    function loadAllReleases() {
+        $("#all-releases-container").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Loading releases from GitHub...</p>");
+
+        $.ajax({
+            url: moduleLink + "&ajax=get_releases",
+            type: "GET",
+            dataType: "json",
+            success: function(data) {
+                if (data.success) {
+                    renderAllReleases(data.releases);
+                } else {
+                    $("#all-releases-container").html(
+                        \'<div class="alert alert-danger">\' +
+                        \'<i class="fas fa-times-circle"></i> \' +
+                        \'Failed to load releases: \' + data.error +
+                        \'</div>\'
+                    );
+                }
+            },
+            error: function() {
+                $("#all-releases-container").html(
+                    \'<div class="alert alert-danger">\' +
+                    \'<i class="fas fa-times-circle"></i> \' +
+                    \'Failed to connect to GitHub.\' +
+                    \'</div>\'
+                );
+            }
+        });
+    }
+
+    function renderAllReleases(releases) {
+        if (!releases || releases.length === 0) {
+            $("#all-releases-container").html("<p class=\"text-muted\">No releases found.</p>");
+            return;
+        }
+
+        var html = \'<div class="panel-group" id="releases-accordion">\';
+
+        releases.forEach(function(release, index) {
+            var isInstalled = (release.version === currentVersion);
+            var isNewer = compareVersions(release.version, currentVersion) > 0;
+            var isOlder = compareVersions(release.version, currentVersion) < 0;
+
+            var versionBadge = "";
+            if (isInstalled) {
+                versionBadge = \' <span class="label label-success">Installed</span>\';
+            } else if (isNewer) {
+                versionBadge = \' <span class="label label-warning">Newer</span>\';
+            } else if (isOlder) {
+                versionBadge = \' <span class="label label-default">Older</span>\';
+            }
+
+            if (release.prerelease) {
+                versionBadge += \' <span class="label label-info">Pre-release</span>\';
+            }
+
+            var panelClass = isInstalled ? "panel-success" : (isNewer ? "panel-warning" : "panel-default");
+
+            html += \'<div class="panel \' + panelClass + \'">\';
+            html += \'<div class="panel-heading" style="cursor: pointer;" data-toggle="collapse" data-target="#release-\' + index + \'">\';
+            html += \'<h4 class="panel-title">\';
+            html += \'<i class="fas fa-tag"></i> v\' + release.version + versionBadge;
+            html += \'<span class="pull-right text-muted" style="font-size: 12px; font-weight: normal;">\' + release.published_at + \'</span>\';
+            html += \'</h4></div>\';
+
+            html += \'<div id="release-\' + index + \'" class="panel-collapse collapse\' + (index === 0 ? \' in\' : \'\') + \'">\';
+            html += \'<div class="panel-body">\';
+
+            // Release title
+            if (release.name && release.name !== release.tag) {
+                html += \'<h5>\' + escapeHtml(release.name) + \'</h5>\';
+            }
+
+            // Release notes
+            if (release.body) {
+                html += \'<div class="well well-sm" style="white-space: pre-wrap; font-family: inherit;">\' + formatReleaseNotes(release.body) + \'</div>\';
+            } else {
+                html += \'<p class="text-muted">No release notes available.</p>\';
+            }
+
+            // Action buttons
+            html += \'<div style="margin-top: 10px;">\';
+
+            if (!isInstalled && release.download_url) {
+                var btnClass = isNewer ? "btn-success" : "btn-warning";
+                var btnText = isNewer ? "Upgrade to v" + release.version : "Downgrade to v" + release.version;
+                html += \'<button class="btn \' + btnClass + \'" onclick="installVersion(\\\'\' + release.download_url + \'\\\', \\\'\' + release.version + \'\\\')"><i class="fas fa-download"></i> \' + btnText + \'</button> \';
+            } else if (isInstalled) {
+                html += \'<button class="btn btn-default" disabled><i class="fas fa-check"></i> Currently Installed</button> \';
+            } else if (!release.download_url) {
+                html += \'<button class="btn btn-default" disabled><i class="fas fa-ban"></i> No Download Available</button> \';
+            }
+
+            html += \'<a href="\' + release.html_url + \'" target="_blank" class="btn btn-default"><i class="fas fa-external-link-alt"></i> View on GitHub</a>\';
+            html += \'</div>\';
+
+            html += \'</div></div></div>\';
+        });
+
+        html += \'</div>\';
+
+        $("#all-releases-container").html(html);
+    }
+
+    function compareVersions(v1, v2) {
+        var parts1 = v1.split(".").map(Number);
+        var parts2 = v2.split(".").map(Number);
+
+        for (var i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+            var p1 = parts1[i] || 0;
+            var p2 = parts2[i] || 0;
+            if (p1 > p2) return 1;
+            if (p1 < p2) return -1;
+        }
+        return 0;
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement("div");
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
+    }
+
+    function formatReleaseNotes(text) {
+        // Basic markdown-like formatting
+        var escaped = escapeHtml(text);
+        // Bold
+        escaped = escaped.replace(/\\*\\*(.+?)\\*\\*/g, "<strong>$1</strong>");
+        // Headers
+        escaped = escaped.replace(/^### (.+)$/gm, "<h5>$1</h5>");
+        escaped = escaped.replace(/^## (.+)$/gm, "<h4>$1</h4>");
+        // List items
+        escaped = escaped.replace(/^- (.+)$/gm, "<li>$1</li>");
+        // Code
+        escaped = escaped.replace(/`([^`]+)`/g, "<code>$1</code>");
+        return escaped;
+    }
+
+    function installVersion(url, version) {
+        var action = compareVersions(version, currentVersion) > 0 ? "upgrade to" : "downgrade to";
+        if (!confirm("This will " + action + " version " + version + ". A backup will be created. Continue?")) {
+            return;
+        }
+
+        // Show progress in the releases container
+        $("#all-releases-container").prepend(
+            \'<div id="install-progress" class="alert alert-info">\' +
+            \'<i class="fas fa-spinner fa-spin"></i> Installing v\' + version + \'... Please wait.\' +
+            \'</div>\'
+        );
+
+        $.ajax({
+            url: moduleLink + "&ajax=install_update&download_url=" + encodeURIComponent(url),
+            type: "GET",
+            dataType: "json",
+            success: function(data) {
+                $("#install-progress").remove();
+
+                if (data.success) {
+                    $("#all-releases-container").prepend(
+                        \'<div class="alert alert-success">\' +
+                        \'<i class="fas fa-check-circle"></i> \' +
+                        \'<strong>Version \' + version + \' Installed Successfully!</strong><br>\' +
+                        \'Backup saved to: \' + data.backup_path + \'<br><br>\' +
+                        \'<button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>\' +
+                        \'</div>\'
+                    );
+                } else {
+                    $("#all-releases-container").prepend(
+                        \'<div class="alert alert-danger">\' +
+                        \'<i class="fas fa-times-circle"></i> \' +
+                        \'<strong>Installation Failed!</strong><br>\' +
+                        data.error +
+                        (data.backup_path ? \'<br>Backup saved to: \' + data.backup_path : \'\') +
+                        \'</div>\'
+                    );
+                }
+            },
+            error: function() {
+                $("#install-progress").remove();
+                $("#all-releases-container").prepend(
+                    \'<div class="alert alert-danger">\' +
+                    \'<i class="fas fa-times-circle"></i> \' +
+                    \'Installation request failed. Please try again.\' +
+                    \'</div>\'
+                );
+            }
+        });
+    }
+
     $("#btn-install-update").click(function() {
         if (!confirm("This will update the CloudPe modules. A backup will be created. Continue?")) {
             return;
         }
-        
+
         $(this).hide();
         $("#update-progress").show();
-        
+
         $.ajax({
             url: moduleLink + "&ajax=install_update&download_url=" + encodeURIComponent(downloadUrl),
             type: "GET",
             dataType: "json",
             success: function(data) {
                 $("#update-progress").hide();
-                
+
                 if (data.success) {
                     $("#update-result").html(
                         \'<div class="alert alert-success">\' +
