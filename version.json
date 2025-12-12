@@ -1,0 +1,15 @@
+{
+    "version": "3.21",
+    "released": "2024-12-12",
+    "min_whmcs_version": "8.0",
+    "min_php_version": "7.4",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.21/cloudpe-whmcs-module-v3.21.zip",
+    "changelog": [
+        "Fixed authentication URL construction (405 error fix)",
+        "Added GitHub-based auto-update support",
+        "Added getImage() and getFlavor() methods",
+        "Added suspendServer() and resumeServer() methods",
+        "Added getServerVolumes() and extendVolume() methods",
+        "Improved error messages for authentication failures"
+    ]
+}
