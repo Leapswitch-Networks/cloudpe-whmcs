@@ -1,6 +1,5 @@
-# CloudPe WHMCS Module for Virtuozzo Hybrid Infrastructure
-
-A comprehensive WHMCS provisioning module for CloudPe (Virtuozzo Hybrid Infrastructure) that enables partners to sell virtual machines to their customers.
+# CloudPe WHMCS Module 
+A comprehensive WHMCS provisioning module for CloudPe that enables partners to sell virtual machines to their customers.
 
 ## Features
 
@@ -15,7 +14,7 @@ A comprehensive WHMCS provisioning module for CloudPe (Virtuozzo Hybrid Infrastr
 
 - WHMCS 8.0 or higher
 - PHP 7.4 or higher
-- CloudPe/Virtuozzo Hybrid Infrastructure account with API access
+- CloudPe account with API access
 - Application Credentials from CloudPe CMP
 
 ## Installation
