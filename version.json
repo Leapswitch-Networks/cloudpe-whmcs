@@ -1,10 +1,10 @@
 {
-    "version": "3.26",
+    "version": "3.27",
     "released": "2025-12-12",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.26/cloudpe-whmcs-module-v3.26.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.27/cloudpe-whmcs-module-v3.27.zip",
     "changelog": [
-        "Fixed empty metadata causing VM creation failure (OpenStack requires {} not [])"
+        "Fixed adminPass not being passed to OpenStack API"
     ]
 }

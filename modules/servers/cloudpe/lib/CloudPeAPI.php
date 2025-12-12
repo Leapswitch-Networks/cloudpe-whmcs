@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.26
+ * @version 3.27
  */
 
 class CloudPeAPI
@@ -354,7 +354,11 @@ class CloudPeAPI
                     return ['name' => trim($sg)];
                 }, (array)$params['security_groups']);
             }
-            
+
+            if (!empty($params['adminPass'])) {
+                $serverData['server']['adminPass'] = $params['adminPass'];
+            }
+
             if (!empty($params['key_name'])) {
                 $serverData['server']['key_name'] = $params['key_name'];
             }
