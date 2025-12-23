@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.33
+ * @version 3.34
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.33');
+define('CLOUDPE_MODULE_VERSION', '3.34');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -1438,12 +1438,40 @@ function cloudpe_admin_render_create_group($modulelink, $serverId, $currencies)
 function cloudpe_admin_create_config_group($data)
 {
     try {
+        // Validate required fields
+        if (empty($data['server_id'])) {
+            return ['success' => false, 'error' => 'Server ID is required'];
+        }
+        if (empty($data['group_name'])) {
+            return ['success' => false, 'error' => 'Group name is required'];
+        }
+
         $serverId = $data['server_id'];
         $groupName = $data['group_name'];
-        $products = $data['products'] ?? [];
+
+        // Handle products array - may come as array or indexed from form
+        $products = [];
+        if (isset($data['products'])) {
+            if (is_array($data['products'])) {
+                $products = $data['products'];
+            } elseif (is_string($data['products'])) {
+                // Try to decode if JSON string
+                $decoded = json_decode($data['products'], true);
+                $products = is_array($decoded) ? $decoded : [$data['products']];
+            }
+        }
+
+        if (empty($products)) {
+            return ['success' => false, 'error' => 'At least one product must be selected'];
+        }
+
         $includeOs = !empty($data['include_os']);
         $includeSize = !empty($data['include_size']);
         $includeDisk = !empty($data['include_disk']);
+
+        if (!$includeOs && !$includeSize && !$includeDisk) {
+            return ['success' => false, 'error' => 'At least one option type (OS, Size, or Disk) must be selected'];
+        }
 
         // Debug: Check what settings exist for this server
         $debugInfo = [];
@@ -1641,7 +1669,7 @@ function cloudpe_admin_create_config_group($data)
             'message' => "Config group '{$groupName}' created (ID: {$groupId}) with " . implode(', ', $details),
         ];
 
-    } catch (\Exception $e) {
-        return ['success' => false, 'error' => $e->getMessage()];
+    } catch (\Throwable $e) {
+        return ['success' => false, 'error' => 'Error: ' . $e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine()];
     }
 }
