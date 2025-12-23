@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.35
+ * @version 3.36
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.35');
+define('CLOUDPE_MODULE_VERSION', '3.36');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -433,6 +433,23 @@ function cloudpe_admin_output($vars)
                 
             case 'create_config_group':
                 echo json_encode(cloudpe_admin_create_config_group($_REQUEST));
+                exit;
+
+            case 'debug_settings':
+                $sid = $_REQUEST['server_id'] ?? 0;
+                $settings = Capsule::table('mod_cloudpe_settings')
+                    ->where('server_id', $sid)
+                    ->get();
+                $result = ['server_id' => $sid, 'settings' => []];
+                foreach ($settings as $s) {
+                    $result['settings'][$s->setting_key] = [
+                        'raw' => $s->setting_value,
+                        'length' => strlen($s->setting_value ?? ''),
+                        'decoded' => json_decode($s->setting_value, true),
+                        'json_error' => json_last_error_msg()
+                    ];
+                }
+                echo json_encode($result, JSON_PRETTY_PRINT);
                 exit;
         }
         exit;
@@ -1425,11 +1442,16 @@ function cloudpe_admin_render_create_group($modulelink, $serverId, $currencies)
         $("#create-result").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Creating...</p>");
         
         $.post(moduleLink + "&ajax=create_config_group", data, function(result) {
+            var html = "";
             if (result.success) {
-                $("#create-result").html("<div class=\"alert alert-success\"><i class=\"fas fa-check\"></i> " + result.message + "</div>");
+                html = "<div class=\"alert alert-success\"><i class=\"fas fa-check\"></i> " + result.message + "</div>";
+                if (result.debug) {
+                    html += "<div class=\"alert alert-info\"><strong>Debug Info:</strong><pre>" + JSON.stringify(result.debug, null, 2) + "</pre></div>";
+                }
             } else {
-                $("#create-result").html("<div class=\"alert alert-danger\">" + result.error + "</div>");
+                html = "<div class=\"alert alert-danger\">" + result.error + "</div>";
             }
+            $("#create-result").html(html);
         });
     });
     </script>';
@@ -1476,6 +1498,26 @@ function cloudpe_admin_create_config_group($data)
         // Debug: Check what settings exist for this server
         $debugInfo = [];
         $debugInfo['server_id'] = $serverId;
+        $debugInfo['checkboxes'] = [
+            'include_os' => $includeOs,
+            'include_size' => $includeSize,
+            'include_disk' => $includeDisk
+        ];
+
+        // Fetch all settings for debug regardless of checkboxes
+        $allSettings = Capsule::table('mod_cloudpe_settings')
+            ->where('server_id', $serverId)
+            ->pluck('setting_value', 'setting_key')
+            ->toArray();
+        $debugInfo['all_settings_keys'] = array_keys($allSettings);
+        $debugInfo['all_settings_preview'] = [];
+        foreach ($allSettings as $key => $val) {
+            $debugInfo['all_settings_preview'][$key] = [
+                'length' => strlen($val ?? ''),
+                'first_50' => substr($val ?? '', 0, 50),
+                'json_valid' => json_decode($val, true) !== null || $val === 'null'
+            ];
+        }
 
         $multQ = floatval($data['mult_q'] ?? 3);
         $multS = floatval($data['mult_s'] ?? 6);

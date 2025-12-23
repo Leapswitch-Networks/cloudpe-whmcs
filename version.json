@@ -1,11 +1,12 @@
 {
-    "version": "3.35",
+    "version": "3.36",
     "released": "2025-12-23",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.35/cloudpe-whmcs-module-v3.35.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.36/cloudpe-whmcs-module-v3.36.zip",
     "changelog": [
-        "Fixed count() error when json_decode returns null for invalid JSON",
-        "Added null-safe defaults for images, flavors, and disks arrays"
+        "Added debug_settings AJAX endpoint to inspect stored settings",
+        "Create Config Group now shows debug info when no options are added",
+        "Enhanced debug output for troubleshooting"
     ]
 }
