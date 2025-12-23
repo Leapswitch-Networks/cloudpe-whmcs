@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.34
+ * @version 3.35
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.34');
+define('CLOUDPE_MODULE_VERSION', '3.35');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -1502,9 +1502,9 @@ function cloudpe_admin_create_config_group($data)
         // Add OS options
         if ($includeOs) {
             $imagesRaw = cloudpe_admin_get_setting($serverId, 'selected_images');
-            $images = json_decode($imagesRaw ?: '[]', true);
-            $imageNames = json_decode(cloudpe_admin_get_setting($serverId, 'image_names') ?: '{}', true);
-            $imagePrices = json_decode(cloudpe_admin_get_setting($serverId, 'image_prices') ?: '{}', true);
+            $images = json_decode($imagesRaw ?: '[]', true) ?: [];
+            $imageNames = json_decode(cloudpe_admin_get_setting($serverId, 'image_names') ?: '{}', true) ?: [];
+            $imagePrices = json_decode(cloudpe_admin_get_setting($serverId, 'image_prices') ?: '{}', true) ?: [];
             $debugInfo['images_raw'] = $imagesRaw;
             $debugInfo['images_count'] = count($images);
             
@@ -1552,9 +1552,9 @@ function cloudpe_admin_create_config_group($data)
         // Add Size options
         if ($includeSize) {
             $flavorsRaw = cloudpe_admin_get_setting($serverId, 'selected_flavors');
-            $flavors = json_decode($flavorsRaw ?: '[]', true);
-            $flavorNames = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_names') ?: '{}', true);
-            $flavorPrices = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_prices') ?: '{}', true);
+            $flavors = json_decode($flavorsRaw ?: '[]', true) ?: [];
+            $flavorNames = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_names') ?: '{}', true) ?: [];
+            $flavorPrices = json_decode(cloudpe_admin_get_setting($serverId, 'flavor_prices') ?: '{}', true) ?: [];
             $debugInfo['flavors_raw'] = $flavorsRaw;
             $debugInfo['flavors_count'] = count($flavors);
 
@@ -1602,7 +1602,7 @@ function cloudpe_admin_create_config_group($data)
         // Add Disk options
         if ($includeDisk) {
             $disksRaw = cloudpe_admin_get_setting($serverId, 'disk_sizes');
-            $disks = json_decode($disksRaw ?: '[]', true);
+            $disks = json_decode($disksRaw ?: '[]', true) ?: [];
             $debugInfo['disks_raw'] = $disksRaw;
             $debugInfo['disks_count'] = count($disks);
 
