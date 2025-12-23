@@ -1,12 +1,12 @@
 {
-    "version": "3.36",
+    "version": "3.37",
     "released": "2025-12-23",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.36/cloudpe-whmcs-module-v3.36.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.37/cloudpe-whmcs-module-v3.37.zip",
     "changelog": [
-        "Added debug_settings AJAX endpoint to inspect stored settings",
-        "Create Config Group now shows debug info when no options are added",
-        "Enhanced debug output for troubleshooting"
+        "Fixed JSON parsing failure caused by smart/curly quotes",
+        "Settings sanitized on save and read to convert curly quotes to straight quotes",
+        "Fixes 'NO options were added' error"
     ]
 }

@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.36
+ * @version 3.37
  */
 
 class CloudPeAPI

@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.36
+ * @version 3.37
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.36');
+define('CLOUDPE_MODULE_VERSION', '3.37');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -1021,6 +1021,9 @@ function cloudpe_admin_save_setting($serverId, $key, $value)
             });
         }
 
+        // Sanitize smart/curly quotes to prevent JSON parsing issues
+        $value = str_replace(['"', '"', ''', '''], ['"', '"', "'", "'"], $value);
+
         Capsule::table('mod_cloudpe_settings')->updateOrInsert(
             ['server_id' => $serverId, 'setting_key' => $key],
             ['setting_value' => $value, 'updated_at' => date('Y-m-d H:i:s')]
@@ -1037,8 +1040,16 @@ function cloudpe_admin_get_setting($serverId, $key)
         ->where('server_id', $serverId)
         ->where('setting_key', $key)
         ->first();
-    
-    return $row ? $row->setting_value : null;
+
+    if (!$row) {
+        return null;
+    }
+
+    // Fix smart/curly quotes that break JSON parsing
+    $value = $row->setting_value;
+    $value = str_replace(['"', '"', ''', '''], ['"', '"', "'", "'"], $value);
+
+    return $value;
 }
 
 function cloudpe_admin_render_images($modulelink, $serverId, $currencies)

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.37] - 2025-12-23
+
+### Fixed
+- **Smart/Curly Quotes**: Fixed JSON parsing failure caused by curly quotes (`"` `"`) instead of straight quotes (`"`)
+- Settings are now sanitized on both save and read to convert smart quotes to straight quotes
+- This fixes "NO options were added" error when data was saved with curly quotes
+
 ## [3.36] - 2025-12-23
 
 ### Added
