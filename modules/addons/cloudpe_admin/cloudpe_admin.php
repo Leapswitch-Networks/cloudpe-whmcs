@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.37
+ * @version 3.38
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.37');
+define('CLOUDPE_MODULE_VERSION', '3.38');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -1022,7 +1022,12 @@ function cloudpe_admin_save_setting($serverId, $key, $value)
         }
 
         // Sanitize smart/curly quotes to prevent JSON parsing issues
-        $value = str_replace(['"', '"', ''', '''], ['"', '"', "'", "'"], $value);
+        // Using hex codes: \xE2\x80\x9C = ", \xE2\x80\x9D = ", \xE2\x80\x98 = ', \xE2\x80\x99 = '
+        $value = str_replace(
+            ["\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99"],
+            ['"', '"', "'", "'"],
+            $value
+        );
 
         Capsule::table('mod_cloudpe_settings')->updateOrInsert(
             ['server_id' => $serverId, 'setting_key' => $key],
@@ -1046,8 +1051,13 @@ function cloudpe_admin_get_setting($serverId, $key)
     }
 
     // Fix smart/curly quotes that break JSON parsing
+    // Using hex codes: \xE2\x80\x9C = ", \xE2\x80\x9D = ", \xE2\x80\x98 = ', \xE2\x80\x99 = '
     $value = $row->setting_value;
-    $value = str_replace(['"', '"', ''', '''], ['"', '"', "'", "'"], $value);
+    $value = str_replace(
+        ["\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99"],
+        ['"', '"', "'", "'"],
+        $value
+    );
 
     return $value;
 }

@@ -1,12 +1,11 @@
 {
-    "version": "3.37",
+    "version": "3.38",
     "released": "2025-12-23",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.37/cloudpe-whmcs-module-v3.37.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.38/cloudpe-whmcs-module-v3.38.zip",
     "changelog": [
-        "Fixed JSON parsing failure caused by smart/curly quotes",
-        "Settings sanitized on save and read to convert curly quotes to straight quotes",
-        "Fixes 'NO options were added' error"
+        "Fixed PHP syntax error from literal curly quotes in source code",
+        "Now using hex escape sequences for Unicode characters"
     ]
 }
