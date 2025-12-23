@@ -1,12 +1,12 @@
 {
-    "version": "3.32",
+    "version": "3.33",
     "released": "2025-12-23",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.32/cloudpe-whmcs-module-v3.32.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.33/cloudpe-whmcs-module-v3.33.zip",
     "changelog": [
-        "Fixed JavaScript error: Unexpected token '&' in AJAX URLs",
-        "Fixed loadImages/loadFlavors not defined errors",
-        "Properly decode HTML entities in module link for JavaScript"
+        "Fixed JavaScript error from HTML-encoded quotes in saved settings",
+        "savedImages, savedNames, savedPrices now properly decoded",
+        "Images and Flavors tabs now work correctly"
     ]
 }
