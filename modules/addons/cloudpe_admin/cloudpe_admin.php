@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.29
+ * @version 3.31
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.29');
+define('CLOUDPE_MODULE_VERSION', '3.31');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');

@@ -1,12 +1,12 @@
 {
-    "version": "3.29",
-    "released": "2025-12-12",
+    "version": "3.31",
+    "released": "2025-12-23",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.29/cloudpe-whmcs-module-v3.29.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.31/cloudpe-whmcs-module-v3.31.zip",
     "changelog": [
-        "Fixed Select All/None buttons on Flavors tab",
-        "Fixed settings table auto-creation",
-        "Improved save feedback with error messages"
+        "Unencoded release - plain PHP source code",
+        "No ionCube Loader required",
+        "Works on any PHP 7.4+ environment"
     ]
 }

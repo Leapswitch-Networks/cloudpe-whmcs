@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.31] - 2025-12-23
+
+### Added
+- **Unencoded Release**: Plain PHP source code without ionCube encoding
+- No ionCube Loader required - works on any PHP 7.4+ environment
+- Full source code access for customization and debugging
+
+## [3.30] - 2025-12-12
+
+### Fixed
+- **ionCube Compatibility**: Re-encoded with ionCube Encoder 14.0 for Loader v14.x compatibility
+- Servers with ionCube Loader v14.4.1 can now decode the module files
+- Encoder 15.0 files required Loader v15.0.0+, now fixed
+
 ## [3.29] - 2025-12-12
 
 ### Fixed
