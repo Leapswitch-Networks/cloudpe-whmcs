@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.31
+ * @version 3.32
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.31');
+define('CLOUDPE_MODULE_VERSION', '3.32');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -554,7 +554,7 @@ function cloudpe_admin_render_updates($modulelink, $updateUrl)
     // JavaScript for update functionality
     echo '<script>
     var updateUrl = ' . json_encode($updateUrl) . ';
-    var moduleLink = ' . json_encode($modulelink) . ';
+    var moduleLink = ' . json_encode(html_entity_decode($modulelink)) . ';
     var currentVersion = ' . json_encode(CLOUDPE_MODULE_VERSION) . ';
     var downloadUrl = "";
 
@@ -1044,7 +1044,7 @@ function cloudpe_admin_render_images($modulelink, $serverId, $currencies)
     
     echo '<script>
     var serverId = ' . $serverId . ';
-    var moduleLink = ' . json_encode($modulelink) . ';
+    var moduleLink = ' . json_encode(html_entity_decode($modulelink)) . ';
     var savedImages = ' . ($savedImages ?: '[]') . ';
     var savedNames = ' . ($savedNames ?: '{}') . ';
     var savedPrices = ' . ($savedPrices ?: '{}') . ';
@@ -1170,7 +1170,7 @@ function cloudpe_admin_render_flavors($modulelink, $serverId, $currencies)
     
     echo '<script>
     var serverId = ' . $serverId . ';
-    var moduleLink = ' . json_encode($modulelink) . ';
+    var moduleLink = ' . json_encode(html_entity_decode($modulelink)) . ';
     var savedFlavors = ' . ($savedFlavors ?: '[]') . ';
     var savedFlavorNames = ' . ($savedNames ?: '{}') . ';
     var savedFlavorPrices = ' . ($savedPrices ?: '{}') . ';
@@ -1311,7 +1311,7 @@ function cloudpe_admin_render_disks($modulelink, $serverId, $currencies)
     echo '</tbody></table></div></div>';
     
     echo '<script>
-    var moduleLink = ' . json_encode($modulelink) . ';
+    var moduleLink = ' . json_encode(html_entity_decode($modulelink)) . ';
     var serverId = ' . $serverId . ';
     var currencies = ' . json_encode($currencies) . ';
     
@@ -1394,7 +1394,7 @@ function cloudpe_admin_render_create_group($modulelink, $serverId, $currencies)
     echo '</div></div>';
     
     echo '<script>
-    var moduleLink = ' . json_encode($modulelink) . ';
+    var moduleLink = ' . json_encode(html_entity_decode($modulelink)) . ';
     var serverId = ' . $serverId . ';
     
     $("#create-group-form").submit(function(e) {
