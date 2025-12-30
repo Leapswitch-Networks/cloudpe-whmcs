@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.40] - 2025-12-30
+
+### Fixed
+- **HTML Entity Encoding**: Fixed JSON parsing failure caused by HTML-encoded quotes (`&quot;` instead of `"`)
+- Added `html_entity_decode()` to sanitization to handle `&quot;`, `&apos;`, and other HTML entities
+- This was the actual root cause of the "no options added" error
+
 ## [3.39] - 2025-12-30
 
 ### Added

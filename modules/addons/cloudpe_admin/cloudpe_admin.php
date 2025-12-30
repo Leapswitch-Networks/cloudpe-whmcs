@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.39
+ * @version 3.40
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.39');
+define('CLOUDPE_MODULE_VERSION', '3.40');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -1044,8 +1044,8 @@ function cloudpe_admin_load_flavors($serverId)
 }
 
 /**
- * Sanitize all Unicode quote variants to ASCII quotes for valid JSON
- * Handles: curly quotes, fullwidth quotes, prime symbols, and other variants
+ * Sanitize quote-like characters for valid JSON
+ * Handles: HTML entities, Unicode curly quotes, fullwidth quotes, prime symbols
  */
 function cloudpe_admin_sanitize_quotes($value)
 {
@@ -1053,7 +1053,11 @@ function cloudpe_admin_sanitize_quotes($value)
         return $value;
     }
 
-    // Double quote replacements (all variants -> ")
+    // FIRST: Decode HTML entities (most common issue: &quot; -> ")
+    // This handles &quot; &apos; &amp; &lt; &gt; and numeric entities
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+    // Double quote replacements (all Unicode variants -> ")
     $doubleQuotes = [
         "\xE2\x80\x9C",     // " LEFT DOUBLE QUOTATION MARK (U+201C)
         "\xE2\x80\x9D",     // " RIGHT DOUBLE QUOTATION MARK (U+201D)
@@ -1066,7 +1070,7 @@ function cloudpe_admin_sanitize_quotes($value)
         "\xC2\xBB",         // » RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK (U+00BB)
     ];
 
-    // Single quote replacements (all variants -> ')
+    // Single quote replacements (all Unicode variants -> ')
     $singleQuotes = [
         "\xE2\x80\x98",     // ' LEFT SINGLE QUOTATION MARK (U+2018)
         "\xE2\x80\x99",     // ' RIGHT SINGLE QUOTATION MARK (U+2019)
