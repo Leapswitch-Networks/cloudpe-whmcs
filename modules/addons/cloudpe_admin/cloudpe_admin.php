@@ -5,7 +5,7 @@
  * Manage CloudPe resources, create Configurable Options, and auto-update.
  * 
  * @author CloudPe
- * @version 3.38
+ * @version 3.39
  */
 
 if (!defined("WHMCS")) {
@@ -15,7 +15,7 @@ if (!defined("WHMCS")) {
 use WHMCS\Database\Capsule;
 
 // Current module version - UPDATE THIS WITH EACH RELEASE
-define('CLOUDPE_MODULE_VERSION', '3.38');
+define('CLOUDPE_MODULE_VERSION', '3.39');
 
 // Update server URL - GitHub releases
 define('CLOUDPE_UPDATE_URL', 'https://raw.githubusercontent.com/Leapswitch-Networks/cloudpe-whmcs/main/version.json');
@@ -450,6 +450,43 @@ function cloudpe_admin_output($vars)
                     ];
                 }
                 echo json_encode($result, JSON_PRETTY_PRINT);
+                exit;
+
+            case 'repair_settings':
+                $sid = $_REQUEST['server_id'] ?? 0;
+                if (!$sid) {
+                    echo json_encode(['success' => false, 'error' => 'No server ID provided']);
+                    exit;
+                }
+                $settings = Capsule::table('mod_cloudpe_settings')
+                    ->where('server_id', $sid)
+                    ->get();
+                $repaired = [];
+                $errors = [];
+                foreach ($settings as $s) {
+                    $original = $s->setting_value;
+                    $sanitized = cloudpe_admin_sanitize_quotes($original);
+                    if ($original !== $sanitized) {
+                        try {
+                            Capsule::table('mod_cloudpe_settings')
+                                ->where('id', $s->id)
+                                ->update(['setting_value' => $sanitized, 'updated_at' => date('Y-m-d H:i:s')]);
+                            $repaired[] = [
+                                'key' => $s->setting_key,
+                                'before_valid' => json_decode($original, true) !== null,
+                                'after_valid' => json_decode($sanitized, true) !== null
+                            ];
+                        } catch (\Exception $e) {
+                            $errors[] = ['key' => $s->setting_key, 'error' => $e->getMessage()];
+                        }
+                    }
+                }
+                echo json_encode([
+                    'success' => true,
+                    'repaired_count' => count($repaired),
+                    'repaired' => $repaired,
+                    'errors' => $errors
+                ], JSON_PRETTY_PRINT);
                 exit;
         }
         exit;
@@ -1006,6 +1043,50 @@ function cloudpe_admin_load_flavors($serverId)
     return $api->listFlavors();
 }
 
+/**
+ * Sanitize all Unicode quote variants to ASCII quotes for valid JSON
+ * Handles: curly quotes, fullwidth quotes, prime symbols, and other variants
+ */
+function cloudpe_admin_sanitize_quotes($value)
+{
+    if (empty($value)) {
+        return $value;
+    }
+
+    // Double quote replacements (all variants -> ")
+    $doubleQuotes = [
+        "\xE2\x80\x9C",     // " LEFT DOUBLE QUOTATION MARK (U+201C)
+        "\xE2\x80\x9D",     // " RIGHT DOUBLE QUOTATION MARK (U+201D)
+        "\xE2\x80\x9E",     // „ DOUBLE LOW-9 QUOTATION MARK (U+201E)
+        "\xE2\x80\x9F",     // ‟ DOUBLE HIGH-REVERSED-9 QUOTATION MARK (U+201F)
+        "\xE2\x80\xB3",     // ″ DOUBLE PRIME (U+2033)
+        "\xE2\x80\xB6",     // ‶ REVERSED DOUBLE PRIME (U+2036)
+        "\xEF\xBC\x82",     // ＂ FULLWIDTH QUOTATION MARK (U+FF02)
+        "\xC2\xAB",         // « LEFT-POINTING DOUBLE ANGLE QUOTATION MARK (U+00AB)
+        "\xC2\xBB",         // » RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK (U+00BB)
+    ];
+
+    // Single quote replacements (all variants -> ')
+    $singleQuotes = [
+        "\xE2\x80\x98",     // ' LEFT SINGLE QUOTATION MARK (U+2018)
+        "\xE2\x80\x99",     // ' RIGHT SINGLE QUOTATION MARK (U+2019)
+        "\xE2\x80\x9A",     // ‚ SINGLE LOW-9 QUOTATION MARK (U+201A)
+        "\xE2\x80\x9B",     // ‛ SINGLE HIGH-REVERSED-9 QUOTATION MARK (U+201B)
+        "\xE2\x80\xB2",     // ′ PRIME (U+2032)
+        "\xE2\x80\xB5",     // ‵ REVERSED PRIME (U+2035)
+        "\xEF\xBC\x87",     // ＇ FULLWIDTH APOSTROPHE (U+FF07)
+        "\xE2\x80\xB9",     // ‹ SINGLE LEFT-POINTING ANGLE QUOTATION MARK (U+2039)
+        "\xE2\x80\xBA",     // › SINGLE RIGHT-POINTING ANGLE QUOTATION MARK (U+203A)
+        "\xC2\x91",         // ' (control char sometimes used as quote)
+        "\xC2\x92",         // ' (control char sometimes used as quote)
+    ];
+
+    $value = str_replace($doubleQuotes, '"', $value);
+    $value = str_replace($singleQuotes, "'", $value);
+
+    return $value;
+}
+
 function cloudpe_admin_save_setting($serverId, $key, $value)
 {
     try {
@@ -1021,13 +1102,8 @@ function cloudpe_admin_save_setting($serverId, $key, $value)
             });
         }
 
-        // Sanitize smart/curly quotes to prevent JSON parsing issues
-        // Using hex codes: \xE2\x80\x9C = ", \xE2\x80\x9D = ", \xE2\x80\x98 = ', \xE2\x80\x99 = '
-        $value = str_replace(
-            ["\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99"],
-            ['"', '"', "'", "'"],
-            $value
-        );
+        // Sanitize all Unicode quote variants to prevent JSON parsing issues
+        $value = cloudpe_admin_sanitize_quotes($value);
 
         Capsule::table('mod_cloudpe_settings')->updateOrInsert(
             ['server_id' => $serverId, 'setting_key' => $key],
@@ -1050,16 +1126,8 @@ function cloudpe_admin_get_setting($serverId, $key)
         return null;
     }
 
-    // Fix smart/curly quotes that break JSON parsing
-    // Using hex codes: \xE2\x80\x9C = ", \xE2\x80\x9D = ", \xE2\x80\x98 = ', \xE2\x80\x99 = '
-    $value = $row->setting_value;
-    $value = str_replace(
-        ["\xE2\x80\x9C", "\xE2\x80\x9D", "\xE2\x80\x98", "\xE2\x80\x99"],
-        ['"', '"', "'", "'"],
-        $value
-    );
-
-    return $value;
+    // Sanitize all Unicode quote variants to prevent JSON parsing issues
+    return cloudpe_admin_sanitize_quotes($row->setting_value);
 }
 
 function cloudpe_admin_render_images($modulelink, $serverId, $currencies)
@@ -1426,9 +1494,11 @@ function cloudpe_admin_render_create_group($modulelink, $serverId, $currencies)
     echo '</div></div>';
     
     echo '<button type="submit" class="btn btn-success btn-lg"><i class="fas fa-plus"></i> Create Configurable Options Group</button>';
+    echo ' <button type="button" class="btn btn-warning" id="btn-repair-data"><i class="fas fa-wrench"></i> Repair Data</button>';
     echo '</form>';
-    
+
     echo '<div id="create-result" style="margin-top:15px;"></div>';
+    echo '<div id="repair-result" style="margin-top:15px;"></div>';
     echo '</div></div>';
     
     echo '<script>
@@ -1473,6 +1543,27 @@ function cloudpe_admin_render_create_group($modulelink, $serverId, $currencies)
                 html = "<div class=\"alert alert-danger\">" + result.error + "</div>";
             }
             $("#create-result").html(html);
+        });
+    });
+
+    $("#btn-repair-data").click(function() {
+        if (!confirm("This will repair all stored settings by fixing Unicode quote characters. Continue?")) {
+            return;
+        }
+        $("#repair-result").html("<p><i class=\"fas fa-spinner fa-spin\"></i> Repairing data...</p>");
+        $.post(moduleLink + "&ajax=repair_settings", { server_id: serverId }, function(result) {
+            var html = "";
+            if (result.success) {
+                if (result.repaired_count > 0) {
+                    html = "<div class=\"alert alert-success\"><i class=\"fas fa-check\"></i> Repaired " + result.repaired_count + " settings.</div>";
+                    html += "<pre>" + JSON.stringify(result.repaired, null, 2) + "</pre>";
+                } else {
+                    html = "<div class=\"alert alert-info\"><i class=\"fas fa-info-circle\"></i> No settings needed repair - all data is valid.</div>";
+                }
+            } else {
+                html = "<div class=\"alert alert-danger\"><i class=\"fas fa-times\"></i> " + result.error + "</div>";
+            }
+            $("#repair-result").html(html);
         });
     });
     </script>';
@@ -1533,9 +1624,16 @@ function cloudpe_admin_create_config_group($data)
         $debugInfo['all_settings_keys'] = array_keys($allSettings);
         $debugInfo['all_settings_preview'] = [];
         foreach ($allSettings as $key => $val) {
+            // Get first 20 chars hex dump to identify exact quote characters
+            $first20 = substr($val ?? '', 0, 20);
+            $hexDump = '';
+            for ($i = 0; $i < strlen($first20); $i++) {
+                $hexDump .= sprintf('%02X ', ord($first20[$i]));
+            }
             $debugInfo['all_settings_preview'][$key] = [
                 'length' => strlen($val ?? ''),
                 'first_50' => substr($val ?? '', 0, 50),
+                'first_20_hex' => trim($hexDump),
                 'json_valid' => json_decode($val, true) !== null || $val === 'null'
             ];
         }

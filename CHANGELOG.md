@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.39] - 2025-12-30
+
+### Added
+- **Repair Data Utility**: Added "Repair Data" button on Create Config Group page to fix corrupted database entries
+- **Comprehensive Quote Sanitization**: Extended sanitization to handle 20+ Unicode quote variants including:
+  - Curly/smart quotes (U+201C, U+201D, U+2018, U+2019)
+  - Double low-9 and high-reversed quotes (U+201E, U+201F)
+  - Prime symbols (U+2032, U+2033, U+2035, U+2036)
+  - Fullwidth quotes (U+FF02, U+FF07)
+  - Angle quotation marks (U+00AB, U+00BB, U+2039, U+203A)
+- **Hex Dump Debug**: Debug output now includes hex dump of first 20 bytes to identify exact problematic characters
+
+### Fixed
+- **Persistent Curly Quote Issue**: Previous fix only handled 4 quote variants; now handles all common Unicode quote characters
+- Database repair utility can fix existing corrupted data without manual re-entry
+
 ## [3.38] - 2025-12-23
 
 ### Fixed
