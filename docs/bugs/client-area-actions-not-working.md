@@ -2,7 +2,7 @@
 
 **Date Reported:** 2026-01-09
 **Date Fixed:** 2026-01-09
-**Status:** Fixed in v3.42
+**Status:** Fixed in v3.43
 **Severity:** High
 **Affected Components:** Client area VM actions (Start, Stop, Restart, VNC Console, Reset Password)
 
@@ -223,7 +223,7 @@ function cloudpeConsole() {
 - [x] Reset Password shows success message
 - [x] Reset Password shows error message on failure
 
-### AJAX Implementation (v3.42)
+### AJAX Implementation (v3.42 - Did Not Work)
 - [x] Buttons disabled during operation
 - [x] Loading spinner shown during operation
 - [x] Success alert displayed without page reload
@@ -235,3 +235,78 @@ function cloudpeConsole() {
 - [x] Browser console logs for debugging (F12 → Console)
 - [x] Network error handling (timeout, connection issues)
 - [x] Buttons re-enabled after error
+
+**Note:** v3.42 AJAX implementation failed because WHMCS intercepts `modop=custom` requests and redirects before JSON response reaches browser.
+
+## Solution Implemented (v3.43 - Standalone AJAX Endpoint)
+
+The final fix bypasses WHMCS routing entirely by creating a standalone AJAX endpoint.
+
+### Why v3.42 Failed
+
+WHMCS's `modop=custom` parameter triggers internal routing that:
+1. Calls the module function
+2. Captures the return value
+3. Redirects back to the product details page
+4. Never sends the JSON response to the browser
+
+Even with `X-Requested-With: XMLHttpRequest` header, WHMCS still intercepts and redirects.
+
+### v3.43 Solution: Standalone ajax.php
+
+Created `modules/servers/cloudpe/ajax.php` that:
+1. Loads WHMCS's `init.php` directly for database access
+2. Validates client session (`$_SESSION['uid']`)
+3. Verifies service ownership
+4. Calls CloudPeAPI methods directly
+5. Returns JSON response and exits (no WHMCS interference)
+
+### Files Added/Modified
+
+1. **NEW: `modules/servers/cloudpe/ajax.php`**
+   - Standalone endpoint bypassing WHMCS routing
+   - Actions: start, stop, restart, console, password
+   - Security: session validation, service ownership check
+
+2. **MODIFIED: `modules/servers/cloudpe/templates/overview.tpl`**
+   - Uses `data-action` attributes on buttons
+   - JavaScript calls `ajax.php` directly
+   - Console opens in sized popup (1024x768)
+
+3. **MODIFIED: `modules/servers/cloudpe/cloudpe.php`**
+   - Added `WEB_ROOT` template variable for AJAX URL
+
+### AJAX Endpoint URL Pattern
+
+```javascript
+var ajaxUrl = '{$WEB_ROOT}/modules/servers/cloudpe/ajax.php';
+var requestUrl = ajaxUrl + '?action=' + action + '&service_id=' + serviceId;
+```
+
+### Security Implementation
+
+```php
+// Validate session
+$clientId = (int)($_SESSION['uid'] ?? 0);
+if ($clientId <= 0) {
+    jsonResponse(false, 'Please log in to continue');
+}
+
+// Verify service ownership
+$service = Capsule::table('tblhosting')
+    ->where('tblhosting.id', $serviceId)
+    ->where('tblhosting.userid', $clientId)
+    ->where('tblproducts.servertype', 'cloudpe')
+    ->first();
+```
+
+### Testing Checklist (v3.43)
+- [ ] Start VM works without page reload
+- [ ] Stop VM works without page reload
+- [ ] Restart VM works without page reload
+- [ ] VNC Console opens in popup window
+- [ ] Reset Password works and shows message
+- [ ] Error messages display correctly
+- [ ] Console logging shows in browser F12
+- [ ] Unauthorized access returns error
+- [ ] Non-existent service returns error

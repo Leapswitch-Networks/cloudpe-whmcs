@@ -5,7 +5,7 @@
  * Provisions virtual machines on CloudPe/OpenStack infrastructure
  * using Application Credentials authentication.
  * 
- * @version 3.42
+ * @version 3.43
  */
 
 if (!defined("WHMCS")) {
@@ -1303,6 +1303,9 @@ function cloudpe_ClientArea(array $params): array
             }
         }
         
+        // Get WHMCS system URL for AJAX endpoint
+        $systemUrl = rtrim($GLOBALS['CONFIG']['SystemURL'] ?? '', '/');
+
         return [
             'templatefile' => 'templates/overview',
             'vars' => [
@@ -1320,6 +1323,8 @@ function cloudpe_ClientArea(array $params): array
                 'disk' => $diskSize,
                 'os' => $imageName,
                 'flavor_name' => $flavorName,
+                // AJAX endpoint URL
+                'WEB_ROOT' => $systemUrl,
             ],
         ];
 

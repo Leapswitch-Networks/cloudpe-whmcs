@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.43] - 2026-01-09
+
+### Fixed
+- **Client Area VM Actions (Standalone Endpoint)**: Created standalone AJAX endpoint to bypass WHMCS routing
+  - v3.42 AJAX approach failed because WHMCS intercepts `modop=custom` requests and redirects before JSON response
+  - New `ajax.php` endpoint bypasses WHMCS routing entirely for reliable JSON responses
+  - Actions now work without page reload with real-time success/error messages
+
+### Added
+- `modules/servers/cloudpe/ajax.php` - Standalone AJAX endpoint for VM actions
+  - Direct API calls without WHMCS interference
+  - Session-based authentication (`$_SESSION['uid']`)
+  - Service ownership validation
+  - Comprehensive error handling and logging
+- `WEB_ROOT` template variable for AJAX endpoint URL construction
+
+### Changed
+- Template uses `data-action` attributes instead of inline onclick handlers
+- JavaScript calls `ajax.php` directly instead of `clientarea.php?modop=custom`
+- VNC Console opens in sized popup window (1024x768)
+
+### Security
+- AJAX endpoint validates client session before processing
+- Service ownership check prevents unauthorized access
+- Active service status verification
+
 ## [3.42] - 2026-01-09
 
 ### Fixed

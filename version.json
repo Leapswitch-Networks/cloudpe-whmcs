@@ -1,13 +1,13 @@
 {
-    "version": "3.42",
+    "version": "3.43",
     "released": "2026-01-09",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.42/cloudpe-whmcs-module-v3.42.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.43/cloudpe-whmcs-module-v3.43.zip",
     "changelog": [
-        "Fixed client area VM actions with AJAX-based feedback",
-        "Actions now work without page reload with proper success/error messages",
-        "Added browser console logging for debugging",
-        "VNC Console opens in new window instead of redirect"
+        "Fixed client area VM actions with standalone AJAX endpoint",
+        "Bypasses WHMCS modop=custom routing that interfered with JSON responses",
+        "New ajax.php endpoint for direct API calls",
+        "Improved security with session validation and service ownership checks"
     ]
 }
