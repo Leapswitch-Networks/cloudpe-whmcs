@@ -5,14 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.42] - 2026-01-09
+
+### Fixed
+- **Client Area VM Actions (AJAX)**: Replaced session-based feedback with AJAX-based solution
+  - Session-based approach from v3.41 didn't work due to WHMCS redirect clearing session variables
+  - Actions now work without page reload with real-time success/error messages
+  - VNC Console opens in new window instead of redirect
+
+### Added
+- `cloudpe_isAjax()` helper to detect AJAX requests
+- `cloudpe_jsonResponse()` helper for JSON responses
+- JavaScript AJAX handlers in overview.tpl (`cloudpeAction`, `cloudpeConsole`)
+- Browser console logging for debugging (F12 → Console)
+- Loading states and button disable during operations
+
+### Changed
+- Template buttons changed from `<a href>` links to `<button onclick>` elements
+- All 5 client functions now return JSON for AJAX requests
+
 ## [3.41] - 2026-01-09
 
 ### Fixed
 - **Client Area VM Actions**: Fixed silent failure of VM actions (Stop, Restart, VNC Console, Reset Password)
   - Fixed method name mismatch: `getVncConsole()` → `getConsoleUrl()` (was causing fatal PHP error)
   - Fixed return value handling: `$result['console']['url']` → `$result['url']`
-  - Added session-based user feedback for all client area actions
-  - Users now see success/error messages instead of silent failures
+  - Added session-based user feedback (replaced by AJAX in v3.42)
 
 ### Changed
 - Updated all client area templates (overview.tpl, error.tpl, no_vm.tpl) to display alert messages
