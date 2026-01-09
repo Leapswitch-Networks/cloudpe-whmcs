@@ -1,7 +1,8 @@
 # Bug: Client Area VM Actions Not Working
 
 **Date Reported:** 2026-01-09
-**Status:** Documented
+**Date Fixed:** 2026-01-09
+**Status:** Fixed
 **Severity:** High
 **Affected Components:** Client area VM actions (Stop, Restart, VNC Console, Reset Password)
 

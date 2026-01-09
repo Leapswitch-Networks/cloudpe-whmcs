@@ -859,12 +859,12 @@ function cloudpe_AdminConsole(array $params): string
         
         logModuleCall('cloudpe', 'AdminConsole', ['server_id' => $serverId], '', 'Requesting console');
         
-        $result = $api->getVncConsole($serverId);
+        $result = $api->getConsoleUrl($serverId);
         
         logModuleCall('cloudpe', 'AdminConsole', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
         
-        if ($result['success'] && !empty($result['console']['url'])) {
-            header('Location: ' . $result['console']['url']);
+        if ($result['success'] && !empty($result['url'])) {
+            header('Location: ' . $result['url']);
             exit;
         }
         
@@ -962,13 +962,20 @@ function cloudpe_ClientStart(array $params): string
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
-        if (empty($serverId)) return 'No VM ID found';
+        if (empty($serverId)) {
+            $_SESSION['cloudpe_message'] = 'No VM ID found';
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'No VM ID found';
+        }
 
         logModuleCall('cloudpe', 'ClientStart', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Starting');
         $result = $api->startServer($serverId);
 
         if (!$result['success']) {
-            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+            $error = $result['error'] ?? 'Unknown error';
+            $_SESSION['cloudpe_message'] = 'Failed to start VM: ' . $error;
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'Failed: ' . $error;
         }
 
         // Wait for VM to become ACTIVE (max 30 seconds for client actions)
@@ -999,8 +1006,12 @@ function cloudpe_ClientStart(array $params): string
             }
         }
 
+        $_SESSION['cloudpe_message'] = 'VM started successfully';
+        $_SESSION['cloudpe_message_type'] = 'success';
         return 'success';
     } catch (Exception $e) {
+        $_SESSION['cloudpe_message'] = 'Error starting VM: ' . $e->getMessage();
+        $_SESSION['cloudpe_message_type'] = 'danger';
         return 'Error: ' . $e->getMessage();
     }
 }
@@ -1011,13 +1022,20 @@ function cloudpe_ClientStop(array $params): string
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
-        if (empty($serverId)) return 'No VM ID found';
+        if (empty($serverId)) {
+            $_SESSION['cloudpe_message'] = 'No VM ID found';
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'No VM ID found';
+        }
 
         logModuleCall('cloudpe', 'ClientStop', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Stopping');
         $result = $api->stopServer($serverId);
 
         if (!$result['success']) {
-            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+            $error = $result['error'] ?? 'Unknown error';
+            $_SESSION['cloudpe_message'] = 'Failed to stop VM: ' . $error;
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'Failed: ' . $error;
         }
 
         // Wait for VM to become SHUTOFF (max 30 seconds for client actions)
@@ -1037,8 +1055,12 @@ function cloudpe_ClientStop(array $params): string
             }
         }
 
+        $_SESSION['cloudpe_message'] = 'VM stopped successfully';
+        $_SESSION['cloudpe_message_type'] = 'success';
         return 'success';
     } catch (Exception $e) {
+        $_SESSION['cloudpe_message'] = 'Error stopping VM: ' . $e->getMessage();
+        $_SESSION['cloudpe_message_type'] = 'danger';
         return 'Error: ' . $e->getMessage();
     }
 }
@@ -1050,13 +1072,20 @@ function cloudpe_ClientRestart(array $params): string
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
-        if (empty($serverId)) return 'No VM ID found';
+        if (empty($serverId)) {
+            $_SESSION['cloudpe_message'] = 'No VM ID found';
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'No VM ID found';
+        }
 
         logModuleCall('cloudpe', 'ClientRestart', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Restarting');
         $result = $api->rebootServer($serverId);
 
         if (!$result['success']) {
-            return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+            $error = $result['error'] ?? 'Unknown error';
+            $_SESSION['cloudpe_message'] = 'Failed to restart VM: ' . $error;
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'Failed: ' . $error;
         }
 
         // Wait for VM to become ACTIVE after reboot (max 30 seconds for client actions)
@@ -1087,8 +1116,12 @@ function cloudpe_ClientRestart(array $params): string
             }
         }
 
+        $_SESSION['cloudpe_message'] = 'VM restarted successfully';
+        $_SESSION['cloudpe_message_type'] = 'success';
         return 'success';
     } catch (Exception $e) {
+        $_SESSION['cloudpe_message'] = 'Error restarting VM: ' . $e->getMessage();
+        $_SESSION['cloudpe_message_type'] = 'danger';
         return 'Error: ' . $e->getMessage();
     }
 }
@@ -1098,23 +1131,32 @@ function cloudpe_ClientConsole(array $params): string
     try {
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
-        if (empty($serverId)) return 'No VM ID found';
-        
+
+        if (empty($serverId)) {
+            $_SESSION['cloudpe_message'] = 'No VM ID found';
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'No VM ID found';
+        }
+
         logModuleCall('cloudpe', 'ClientConsole', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Requesting');
-        
-        $result = $api->getVncConsole($serverId);
-        
+
+        $result = $api->getConsoleUrl($serverId);
+
         logModuleCall('cloudpe', 'ClientConsole', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
-        
-        if ($result['success'] && !empty($result['console']['url'])) {
-            header('Location: ' . $result['console']['url']);
+
+        if ($result['success'] && !empty($result['url'])) {
+            header('Location: ' . $result['url']);
             exit;
         }
-        
-        return 'Console URL not received: ' . ($result['error'] ?? 'No URL in response');
+
+        $error = $result['error'] ?? 'No URL in response';
+        $_SESSION['cloudpe_message'] = 'Console URL not received: ' . $error;
+        $_SESSION['cloudpe_message_type'] = 'danger';
+        return 'Console URL not received: ' . $error;
     } catch (Exception $e) {
         logModuleCall('cloudpe', 'ClientConsole', $params, $e->getMessage(), 'Exception');
+        $_SESSION['cloudpe_message'] = 'Error opening console: ' . $e->getMessage();
+        $_SESSION['cloudpe_message_type'] = 'danger';
         return 'Error: ' . $e->getMessage();
     }
 }
@@ -1125,40 +1167,60 @@ function cloudpe_ClientChangePassword(array $params): string
         $api = new CloudPeAPI($params);
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
-        if (empty($serverId)) return 'No VM ID found';
-        
+
+        if (empty($serverId)) {
+            $_SESSION['cloudpe_message'] = 'No VM ID found';
+            $_SESSION['cloudpe_message_type'] = 'danger';
+            return 'No VM ID found';
+        }
+
         $newPassword = $helper->generatePassword();
-        
+
         logModuleCall('cloudpe', 'ClientChangePassword', ['server_id' => $serverId, 'client_id' => $params['userid']], '', 'Changing');
-        
+
         $result = $api->changePassword($serverId, $newPassword);
-        
+
         if ($result['success']) {
             Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
                 'password' => encrypt($newPassword),
             ]);
+            $_SESSION['cloudpe_message'] = 'Password reset successfully. View your new password in the service details.';
+            $_SESSION['cloudpe_message_type'] = 'success';
             return 'success';
         }
-        
-        return 'Failed: ' . ($result['error'] ?? 'Unknown error');
+
+        $error = $result['error'] ?? 'Unknown error';
+        $_SESSION['cloudpe_message'] = 'Failed to reset password: ' . $error;
+        $_SESSION['cloudpe_message_type'] = 'danger';
+        return 'Failed: ' . $error;
     } catch (Exception $e) {
+        $_SESSION['cloudpe_message'] = 'Error resetting password: ' . $e->getMessage();
+        $_SESSION['cloudpe_message_type'] = 'danger';
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientArea(array $params): array
 {
+    // Get and clear session messages
+    $cloudpeMessage = $_SESSION['cloudpe_message'] ?? null;
+    $cloudpeMessageType = $_SESSION['cloudpe_message_type'] ?? 'info';
+    unset($_SESSION['cloudpe_message'], $_SESSION['cloudpe_message_type']);
+
     try {
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
-        
+
         if (empty($serverId)) {
             return [
                 'templatefile' => 'templates/no_vm',
-                'vars' => ['message' => 'VM not yet provisioned'],
+                'vars' => [
+                    'message' => 'VM not yet provisioned',
+                    'cloudpe_message' => $cloudpeMessage,
+                    'cloudpe_message_type' => $cloudpeMessageType,
+                ],
             ];
         }
-        
+
         $api = new CloudPeAPI($params);
         $helper = new CloudPeHelper();
         
@@ -1168,7 +1230,11 @@ function cloudpe_ClientArea(array $params): array
         if (!$result['success']) {
             return [
                 'templatefile' => 'templates/error',
-                'vars' => ['error' => $result['error'] ?? 'Failed to get VM status'],
+                'vars' => [
+                    'error' => $result['error'] ?? 'Failed to get VM status',
+                    'cloudpe_message' => $cloudpeMessage,
+                    'cloudpe_message_type' => $cloudpeMessageType,
+                ],
             ];
         }
         
@@ -1239,13 +1305,20 @@ function cloudpe_ClientArea(array $params): array
                 'disk' => $diskSize,
                 'os' => $imageName,
                 'flavor_name' => $flavorName,
+                // Session messages
+                'cloudpe_message' => $cloudpeMessage,
+                'cloudpe_message_type' => $cloudpeMessageType,
             ],
         ];
         
     } catch (Exception $e) {
         return [
             'templatefile' => 'templates/error',
-            'vars' => ['error' => $e->getMessage()],
+            'vars' => [
+                'error' => $e->getMessage(),
+                'cloudpe_message' => $cloudpeMessage,
+                'cloudpe_message_type' => $cloudpeMessageType,
+            ],
         ];
     }
 }

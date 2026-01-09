@@ -1,5 +1,73 @@
 # CLAUDE.md - Project Guide for Claude Code
 
+**Repository**: https://github.com/Leapswitch-Networks/vendor-bills
+
+## ⚠️ MANDATORY: Git Branching Workflow
+
+**Claude Code MUST follow this workflow for EVERY task:**
+
+### Before Starting ANY Work
+
+```bash
+# 1. Check current branch
+git branch --show-current
+
+# 2. If not on main, switch to main
+git checkout main
+git pull origin main
+
+# 3. Create feature branch for this task
+git checkout -b feature/<descriptive-name>
+```
+
+**Branch naming conventions:**
+
+- Features: `feature/rbac-system`, `feature/image-marketplace`
+- Bug fixes: `fix/billing-calculation`, `fix/vm-provisioning-error`
+- Hotfixes: `hotfix/critical-auth-bug`
+- Refactoring: `refactor/api-response-format`
+
+### During Work
+
+- Make atomic commits with clear messages
+- Commit frequently as work progresses
+- Push to remote periodically: `git push -u origin feature/<name>`
+
+### After Completing Work
+
+**Ask user before merging:** "Work complete. Should I merge to main and push?"
+
+If user confirms:
+
+```bash
+# 1. Push final changes
+git push origin feature/<branch-name>
+
+# 2. Switch to main
+git checkout main
+git pull origin main
+
+# 3. Merge feature branch
+git merge feature/<branch-name>
+
+# 4. Push main
+git push origin main
+
+# 5. Optionally delete feature branch
+git branch -d feature/<branch-name>
+git push origin --delete feature/<branch-name>
+```
+
+**NEVER Commit without explicit user approval.**
+
+## Git Commit Rules
+
+- Do NOT add Claude co-authorship or attribution footer to commits
+- Do NOT include "Generated with Claude Code" in commit messages
+- Do NOT include "Co-Authored-By: Claude" in commit messages
+
+---
+
 ## Project Overview
 
 This is the CloudPe WHMCS Module. It enables WHMCS resellers to provision and manage virtual machines through CloudPe's OpenStack-based infrastructure.
@@ -7,12 +75,14 @@ This is the CloudPe WHMCS Module. It enables WHMCS resellers to provision and ma
 ## Key Architecture
 
 ### Authentication
+
 - Uses OpenStack Application Credentials (NOT username/password)
 - Credentials are scoped to specific Project + Region combinations
 - Auth URL pattern: `https://{hostname}/{project_path}/v3/auth/tokens`
 - **IMPORTANT**: The Access Hash field contains the project path (e.g., `/openstack/14`)
 
 ### File Structure
+
 ```
 modules/
 ├── addons/cloudpe_admin/     # Admin management module
@@ -29,6 +99,7 @@ modules/
 ### Critical Code Patterns
 
 #### CloudPeAPI.php - URL Construction (DO NOT CHANGE)
+
 ```php
 // In constructor:
 $this->serverUrl = $protocol . rtrim($hostname, '/');
@@ -45,7 +116,9 @@ $this->serverUrl . '/auth/tokens'
 ```
 
 #### Service Endpoints
+
 After authentication, service endpoints come from the token catalog and are used directly:
+
 - Compute: `{catalog_url}/servers`
 - Network: `{catalog_url}/v2.0/networks`
 - Image: `{catalog_url}/v2/images`
@@ -54,6 +127,7 @@ After authentication, service endpoints come from the token catalog and are used
 ## Common Tasks
 
 ### Adding a New API Method
+
 1. Add method to `CloudPeAPI.php`
 2. Use `$this->getEndpoint('service_type')` for the base URL
 3. Use `$this->apiRequest($url, 'METHOD', $data)` for requests
@@ -61,12 +135,14 @@ After authentication, service endpoints come from the token catalog and are used
 5. Return `['success' => bool, 'data' => ...]`
 
 ### Updating Version
+
 1. Update `CLOUDPE_MODULE_VERSION` in `cloudpe_admin.php`
 2. Update `@version` in `CloudPeAPI.php` header
 3. Update `version.json` in repository root
 4. Update `CHANGELOG.md`
 
 ### Creating a Release
+
 1. Update all version numbers
 2. Create release ZIP: `zip -r cloudpe-whmcs-module-vX.XX.zip modules/`
 3. Create GitHub release with the ZIP
@@ -75,15 +151,18 @@ After authentication, service endpoints come from the token catalog and are used
 ## Testing
 
 ### Test Connection
+
 1. WHMCS Admin → Setup → Servers → Test Connection
 2. Should return "Connected successfully. Project ID: ..."
 
 ### Test Resource Loading
+
 1. Addons → CloudPe Manager → Flavors/Images/Networks tabs
 2. Click "Load from API" buttons
 3. Resources should populate
 
 ### Test VM Creation
+
 1. Create a test product with CloudPe module
 2. Place a test order
 3. Check provisioning logs
@@ -105,6 +184,7 @@ After authentication, service endpoints come from the token catalog and are used
 ## API Reference
 
 Key OpenStack APIs used:
+
 - Identity v3: `/v3/auth/tokens`
 - Nova (Compute): `/servers`, `/flavors`
 - Neutron (Network): `/v2.0/networks`, `/v2.0/security-groups`
