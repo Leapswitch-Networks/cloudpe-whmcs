@@ -1,12 +1,12 @@
 {
-    "version": "3.40",
-    "released": "2025-12-30",
+    "version": "3.41",
+    "released": "2026-01-09",
     "min_whmcs_version": "8.0",
     "min_php_version": "7.4",
-    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.40/cloudpe-whmcs-module-v3.40.zip",
+    "download_url": "https://github.com/Leapswitch-Networks/cloudpe-whmcs/releases/download/v3.41/cloudpe-whmcs-module-v3.41.zip",
     "changelog": [
-        "Fixed JSON parsing failure caused by HTML-encoded quotes (&quot;)",
-        "Added html_entity_decode() to fix the actual root cause",
-        "Repair Data button now properly fixes corrupted database entries"
+        "Fixed client area VM actions silent failure (Stop, Restart, VNC Console, Reset Password)",
+        "Fixed method name mismatch causing fatal PHP error",
+        "Added session-based user feedback for all client area actions"
     ]
 }

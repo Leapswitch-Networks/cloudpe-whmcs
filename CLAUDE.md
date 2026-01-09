@@ -37,26 +37,33 @@ git checkout -b feature/<descriptive-name>
 
 **Ask user before merging:** "Work complete. Should I merge to main and push?"
 
-If user confirms:
+If user confirms (applies to ALL branch types: feature/, fix/, hotfix/, refactor/):
 
 ```bash
-# 1. Push final changes
-git push origin feature/<branch-name>
+# 1. Push final changes to branch
+git push origin <branch-name>
 
 # 2. Switch to main
 git checkout main
 git pull origin main
 
-# 3. Merge feature branch
-git merge feature/<branch-name>
+# 3. Squash merge branch (combines all commits into one)
+git merge --squash <branch-name>
 
-# 4. Push main
+# 4. Commit with a summary message
+git commit -m "Feature/fix description"
+
+# 5. Push main
 git push origin main
 
-# 5. Optionally delete feature branch
-git branch -d feature/<branch-name>
-git push origin --delete feature/<branch-name>
+# 6. (Only if user requests) Delete branch
+git branch -D <branch-name>
+git push origin --delete <branch-name>
 ```
+
+**Why squash merge?** Keeps main branch history clean with one commit per feature/fix, instead of polluting it with all intermediate commits from the working branch.
+
+**Note:** Do NOT delete the branch unless the user explicitly requests it.
 
 **NEVER Commit without explicit user approval.**
 

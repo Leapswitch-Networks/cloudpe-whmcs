@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.41] - 2026-01-09
+
+### Fixed
+- **Client Area VM Actions**: Fixed silent failure of VM actions (Stop, Restart, VNC Console, Reset Password)
+  - Fixed method name mismatch: `getVncConsole()` → `getConsoleUrl()` (was causing fatal PHP error)
+  - Fixed return value handling: `$result['console']['url']` → `$result['url']`
+  - Added session-based user feedback for all client area actions
+  - Users now see success/error messages instead of silent failures
+
+### Changed
+- Updated all client area templates (overview.tpl, error.tpl, no_vm.tpl) to display alert messages
+
 ## [3.40] - 2025-12-30
 
 ### Fixed

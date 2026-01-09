@@ -5,7 +5,7 @@
  * Provisions virtual machines on CloudPe/OpenStack infrastructure
  * using Application Credentials authentication.
  * 
- * @version 3.23
+ * @version 3.41
  */
 
 if (!defined("WHMCS")) {
