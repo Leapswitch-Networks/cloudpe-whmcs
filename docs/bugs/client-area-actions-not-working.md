@@ -2,9 +2,9 @@
 
 **Date Reported:** 2026-01-09
 **Date Fixed:** 2026-01-09
-**Status:** Fixed
+**Status:** Fixed in v3.42
 **Severity:** High
-**Affected Components:** Client area VM actions (Stop, Restart, VNC Console, Reset Password)
+**Affected Components:** Client area VM actions (Start, Stop, Restart, VNC Console, Reset Password)
 
 ## Problem
 
@@ -76,16 +76,16 @@ function cloudpe_ClientStop(array $params): string {
 | `cloudpe_ClientConsole()`        | cloudpe.php:1096 | Method name + return value + silent errors |
 | `cloudpe_ClientChangePassword()` | cloudpe.php:1122 | Silent error handling                      |
 
-## Solution
+## Solution (v3.41 - Partial Fix)
 
-### Fix 1: Correct Method Name
+### Fix 1: Correct Method Name (v3.41)
 
 Change `getVncConsole` to `getConsoleUrl` at:
 
 - Line 862 (admin area console)
 - Line 1106 (client area console)
 
-### Fix 2: Correct Return Value Handling
+### Fix 2: Correct Return Value Handling (v3.41)
 
 Update `cloudpe_ClientConsole()` to use `$result['url']` instead of `$result['console']['url']`:
 
@@ -96,9 +96,9 @@ if ($result['success'] && !empty($result['url'])) {
 }
 ```
 
-### Fix 3: Add User-Visible Error Messages
+### Fix 3: Add User-Visible Error Messages (v3.41 - Did Not Work)
 
-Implement session-based messaging to display errors/success to users:
+Attempted session-based messaging to display errors/success to users. **This approach failed** because WHMCS redirects clear session variables before they can be displayed:
 
 1. Set messages in session before returning:
 
@@ -126,26 +126,112 @@ unset($_SESSION['cloudpe_message'], $_SESSION['cloudpe_message_type']);
 {/if}
 ```
 
-## Files to Modify
+## Files Modified
 
+### v3.41 (Partial)
 1. `modules/servers/cloudpe/cloudpe.php`
+   - Fixed method name `getVncConsole` → `getConsoleUrl` (2 locations)
+   - Fixed return value handling `$result['console']['url']` → `$result['url']`
 
-   - Fix method name (2 locations)
-   - Fix return value handling
-   - Add session-based messaging to all 5 client functions
-   - Update `cloudpe_ClientArea()` to pass messages to template
+### v3.42 (Complete Fix)
+1. `modules/servers/cloudpe/cloudpe.php`
+   - Added `cloudpe_isAjax()` helper function
+   - Added `cloudpe_jsonResponse()` helper function
+   - Updated all 5 client functions to return JSON for AJAX requests
+   - Removed session-based messaging code
 
 2. `modules/servers/cloudpe/templates/overview.tpl`
-   - Add alert display block
+   - Changed `<a href>` links to `<button onclick>` elements
+   - Added JavaScript AJAX handlers (`cloudpeAction`, `cloudpeConsole`)
+   - Added alert container, status cell, loading states
+   - Added console logging for debugging
+
+## Solution Implemented (v3.42)
+
+Session-based messaging did not work because WHMCS redirects clear session variables. Implemented AJAX-based solution instead.
+
+### PHP Changes (`cloudpe.php`)
+
+Added AJAX detection and JSON response helpers:
+
+```php
+function cloudpe_isAjax(): bool
+{
+    return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+           strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+function cloudpe_jsonResponse(bool $success, string $message, array $data = []): void
+{
+    header('Content-Type: application/json');
+    echo json_encode(array_merge(['success' => $success, 'message' => $message], $data));
+    exit;
+}
+```
+
+Updated all 5 client functions to return JSON when called via AJAX:
+- `cloudpe_ClientStart()` - returns `{success, message, status}`
+- `cloudpe_ClientStop()` - returns `{success, message, status}`
+- `cloudpe_ClientRestart()` - returns `{success, message, status}`
+- `cloudpe_ClientConsole()` - returns `{success, message, url}`
+- `cloudpe_ClientChangePassword()` - returns `{success, message}`
+
+### Template Changes (`overview.tpl`)
+
+Changed from `<a href>` links to `<button onclick>` elements with JavaScript AJAX handlers:
+
+```javascript
+// Main action handler for Start/Stop/Restart/Password
+function cloudpeAction(action, loadingMessage) {
+    $.ajax({
+        url: 'clientarea.php?action=productdetails&id=' + serviceId + '&modop=custom&a=' + action,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        success: function(response) {
+            if (response.success) {
+                showAlert('success', response.message);
+                setTimeout(function() { location.reload(); }, 2000);
+            } else {
+                showAlert('error', response.message);
+            }
+        }
+    });
+}
+
+// Console handler - opens in new window
+function cloudpeConsole() {
+    $.ajax({
+        url: 'clientarea.php?...&a=ClientConsole',
+        success: function(response) {
+            if (response.success && response.url) {
+                window.open(response.url, '_blank');
+            }
+        }
+    });
+}
+```
 
 ## Testing Checklist
 
-- [ ] VNC Console opens correctly
-- [ ] Stop VM shows success message
-- [ ] Stop VM shows error message on failure
-- [ ] Start VM shows success message
-- [ ] Start VM shows error message on failure
-- [ ] Restart VM shows success message
-- [ ] Restart VM shows error message on failure
-- [ ] Reset Password shows success message
-- [ ] Reset Password shows error message on failure
+### Core Functionality
+- [x] VNC Console opens correctly
+- [x] Stop VM shows success message
+- [x] Stop VM shows error message on failure
+- [x] Start VM shows success message
+- [x] Start VM shows error message on failure
+- [x] Restart VM shows success message
+- [x] Restart VM shows error message on failure
+- [x] Reset Password shows success message
+- [x] Reset Password shows error message on failure
+
+### AJAX Implementation (v3.42)
+- [x] Buttons disabled during operation
+- [x] Loading spinner shown during operation
+- [x] Success alert displayed without page reload
+- [x] Error alert displayed without page reload
+- [x] Status label updates after action
+- [x] Page auto-reloads after successful action (2 sec delay)
+- [x] Confirmation dialog for destructive actions (Stop, Restart, Password)
+- [x] Console opens in new window (not redirect)
+- [x] Browser console logs for debugging (F12 → Console)
+- [x] Network error handling (timeout, connection issues)
+- [x] Buttons re-enabled after error

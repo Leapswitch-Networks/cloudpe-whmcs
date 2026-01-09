@@ -73,6 +73,143 @@ git push origin --delete <branch-name>
 - Do NOT include "Generated with Claude Code" in commit messages
 - Do NOT include "Co-Authored-By: Claude" in commit messages
 
+## 🚀 Deployment Release Protocol
+
+**When user prompts to deploy a release, Claude MUST ask for confirmation at each step so user can review.**
+
+### Trigger Phrases
+
+- "deploy release", "release", "publish release", "ship it", "release v<version>"
+
+### Release Workflow (With Confirmation)
+
+#### Step 1: Prepare Branch
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+git add -A && git commit -m "Prepare release" --allow-empty
+git push origin $CURRENT_BRANCH
+```
+
+**⏸️ Confirm:** "Branch pushed. Proceed to squash merge to main?"
+
+---
+
+#### Step 2: Squash Merge to Main
+
+```bash
+git checkout main && git pull origin main
+git merge --squash $CURRENT_BRANCH
+git commit -m "Release: v - "
+```
+
+**⏸️ Confirm:** "Squash merged. Proceed to update CHANGELOG.md?"
+
+---
+
+#### Step 3: Update CHANGELOG.md
+
+Generate entry from commits since last tag:
+
+```
+## [v<version>] - YYYY-MM-DD
+### Added
+- New features
+### Changed
+- Modifications
+### Fixed
+- Bug fixes
+```
+
+```bash
+git add CHANGELOG.md
+git commit --amend --no-edit
+```
+
+**⏸️ Confirm:** "CHANGELOG updated. Proceed to update docs?"
+
+---
+
+#### Step 4: Update Documentation (docs/\*_/_.md)
+
+Find and update related documentation files:
+
+1. **Scan docs/ folder** for files mentioning the feature/bug name
+2. **Update version badge/status** in related docs:
+   - Add/update `Version: v<version>`
+   - Update `Status: Implemented` or `Status: Released`
+   - Add release date if applicable
+3. **Example updates:**
+
+   ```markdown
+   <!-- Before -->
+
+   ## Feature: RBAC System
+
+   Status: In Progress
+
+   <!-- After -->
+
+   ## Feature: RBAC System
+
+   Status: Released
+   Version: v1.2.0
+   Release Date: 2026-01-09
+   ```
+
+```bash
+git add docs/
+git commit --amend --no-edit
+```
+
+**⏸️ Confirm:** "Docs updated. Review changes and proceed to push main?"
+
+---
+
+#### Step 5: Push Main
+
+```bash
+git push origin main
+```
+
+**⏸️ Confirm:** "Main pushed. Proceed to create tag and GitHub release?"
+
+---
+
+#### Step 6: Tag & GitHub Release
+
+```bash
+git tag -a v -m "Release v"
+git push origin v
+gh release create v --generate-notes --title "Release v"
+```
+
+**✅ Complete:** "Release v<version> published."
+
+---
+
+### Rules
+
+1. **CONFIRM EACH STEP** - Wait for user approval before proceeding
+2. **SQUASH MERGE ONLY** - Always `git merge --squash`
+3. **UPDATE CHANGELOG.md** - Generate from commits since last tag
+4. **UPDATE DOCS** - Update related docs/\*_/_.md with version & status
+5. **VERSION** - Use user-specified version, or check `package.json`/`pyproject.toml`, or ask once
+
+### CHANGELOG.md Generation
+
+- Extract changes from commits between last tag and HEAD
+- Categorize: Added, Changed, Fixed, Removed, Security
+- Use conventional commit prefixes (feat:, fix:, etc.) if available
+- Create CHANGELOG.md if it doesn't exist
+
+### Documentation Update Rules
+
+- Search `docs/**/*.md` for files related to current branch name/feature
+- Update fields: `Status`, `Version`, `Release Date`
+- Status values: `Planned` → `In Progress` → `Released`
+- List all updated doc files for user review before committing
+
 ---
 
 ## Project Overview

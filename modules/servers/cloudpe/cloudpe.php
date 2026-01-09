@@ -955,16 +955,39 @@ function cloudpe_ClientAreaAllowedFunctions(): array
     ];
 }
 
+/**
+ * Helper: Check if request is AJAX
+ */
+function cloudpe_isAjax(): bool
+{
+    return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) &&
+           strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+}
+
+/**
+ * Helper: Send JSON response and exit
+ */
+function cloudpe_jsonResponse(bool $success, string $message, array $data = []): void
+{
+    header('Content-Type: application/json');
+    echo json_encode(array_merge([
+        'success' => $success,
+        'message' => $message,
+    ], $data));
+    exit;
+}
+
 function cloudpe_ClientStart(array $params): string
 {
+    $isAjax = cloudpe_isAjax();
+
     try {
         $api = new CloudPeAPI($params);
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
         if (empty($serverId)) {
-            $_SESSION['cloudpe_message'] = 'No VM ID found';
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'No VM ID found');
             return 'No VM ID found';
         }
 
@@ -973,14 +996,14 @@ function cloudpe_ClientStart(array $params): string
 
         if (!$result['success']) {
             $error = $result['error'] ?? 'Unknown error';
-            $_SESSION['cloudpe_message'] = 'Failed to start VM: ' . $error;
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'Failed to start VM: ' . $error);
             return 'Failed: ' . $error;
         }
 
         // Wait for VM to become ACTIVE (max 30 seconds for client actions)
         $maxWait = 30;
         $waited = 0;
+        $newStatus = 'UNKNOWN';
         while ($waited < $maxWait) {
             sleep(3);
             $waited += 3;
@@ -988,6 +1011,7 @@ function cloudpe_ClientStart(array $params): string
             $statusResult = $api->getServer($serverId);
             if ($statusResult['success']) {
                 $status = $statusResult['server']['status'] ?? '';
+                $newStatus = $status;
                 if ($status === 'ACTIVE') {
                     // Sync IPs and status
                     $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
@@ -1006,25 +1030,25 @@ function cloudpe_ClientStart(array $params): string
             }
         }
 
-        $_SESSION['cloudpe_message'] = 'VM started successfully';
-        $_SESSION['cloudpe_message_type'] = 'success';
+        if ($isAjax) cloudpe_jsonResponse(true, 'VM started successfully', ['status' => $newStatus]);
         return 'success';
     } catch (Exception $e) {
-        $_SESSION['cloudpe_message'] = 'Error starting VM: ' . $e->getMessage();
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        logModuleCall('cloudpe', 'ClientStart', $params, $e->getMessage(), 'Exception');
+        if ($isAjax) cloudpe_jsonResponse(false, 'Error: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientStop(array $params): string
 {
+    $isAjax = cloudpe_isAjax();
+
     try {
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
         if (empty($serverId)) {
-            $_SESSION['cloudpe_message'] = 'No VM ID found';
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'No VM ID found');
             return 'No VM ID found';
         }
 
@@ -1033,14 +1057,14 @@ function cloudpe_ClientStop(array $params): string
 
         if (!$result['success']) {
             $error = $result['error'] ?? 'Unknown error';
-            $_SESSION['cloudpe_message'] = 'Failed to stop VM: ' . $error;
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'Failed to stop VM: ' . $error);
             return 'Failed: ' . $error;
         }
 
         // Wait for VM to become SHUTOFF (max 30 seconds for client actions)
         $maxWait = 30;
         $waited = 0;
+        $newStatus = 'UNKNOWN';
         while ($waited < $maxWait) {
             sleep(3);
             $waited += 3;
@@ -1048,6 +1072,7 @@ function cloudpe_ClientStop(array $params): string
             $statusResult = $api->getServer($serverId);
             if ($statusResult['success']) {
                 $status = $statusResult['server']['status'] ?? '';
+                $newStatus = $status;
                 if ($status === 'SHUTOFF') {
                     logModuleCall('cloudpe', 'ClientStop', ['server_id' => $serverId], 'VM is now SHUTOFF', 'Success');
                     break;
@@ -1055,26 +1080,26 @@ function cloudpe_ClientStop(array $params): string
             }
         }
 
-        $_SESSION['cloudpe_message'] = 'VM stopped successfully';
-        $_SESSION['cloudpe_message_type'] = 'success';
+        if ($isAjax) cloudpe_jsonResponse(true, 'VM stopped successfully', ['status' => $newStatus]);
         return 'success';
     } catch (Exception $e) {
-        $_SESSION['cloudpe_message'] = 'Error stopping VM: ' . $e->getMessage();
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        logModuleCall('cloudpe', 'ClientStop', $params, $e->getMessage(), 'Exception');
+        if ($isAjax) cloudpe_jsonResponse(false, 'Error: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientRestart(array $params): string
 {
+    $isAjax = cloudpe_isAjax();
+
     try {
         $api = new CloudPeAPI($params);
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
         if (empty($serverId)) {
-            $_SESSION['cloudpe_message'] = 'No VM ID found';
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'No VM ID found');
             return 'No VM ID found';
         }
 
@@ -1083,14 +1108,14 @@ function cloudpe_ClientRestart(array $params): string
 
         if (!$result['success']) {
             $error = $result['error'] ?? 'Unknown error';
-            $_SESSION['cloudpe_message'] = 'Failed to restart VM: ' . $error;
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'Failed to restart VM: ' . $error);
             return 'Failed: ' . $error;
         }
 
         // Wait for VM to become ACTIVE after reboot (max 30 seconds for client actions)
         $maxWait = 30;
         $waited = 0;
+        $newStatus = 'UNKNOWN';
         while ($waited < $maxWait) {
             sleep(3);
             $waited += 3;
@@ -1098,6 +1123,7 @@ function cloudpe_ClientRestart(array $params): string
             $statusResult = $api->getServer($serverId);
             if ($statusResult['success']) {
                 $status = $statusResult['server']['status'] ?? '';
+                $newStatus = $status;
                 if ($status === 'ACTIVE') {
                     // Sync IPs
                     $ips = $helper->extractIPs($statusResult['server']['addresses'] ?? []);
@@ -1116,25 +1142,25 @@ function cloudpe_ClientRestart(array $params): string
             }
         }
 
-        $_SESSION['cloudpe_message'] = 'VM restarted successfully';
-        $_SESSION['cloudpe_message_type'] = 'success';
+        if ($isAjax) cloudpe_jsonResponse(true, 'VM restarted successfully', ['status' => $newStatus]);
         return 'success';
     } catch (Exception $e) {
-        $_SESSION['cloudpe_message'] = 'Error restarting VM: ' . $e->getMessage();
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        logModuleCall('cloudpe', 'ClientRestart', $params, $e->getMessage(), 'Exception');
+        if ($isAjax) cloudpe_jsonResponse(false, 'Error: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientConsole(array $params): string
 {
+    $isAjax = cloudpe_isAjax();
+
     try {
         $api = new CloudPeAPI($params);
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
         if (empty($serverId)) {
-            $_SESSION['cloudpe_message'] = 'No VM ID found';
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'No VM ID found');
             return 'No VM ID found';
         }
 
@@ -1145,32 +1171,32 @@ function cloudpe_ClientConsole(array $params): string
         logModuleCall('cloudpe', 'ClientConsole', ['server_id' => $serverId], $result, $result['success'] ? 'Success' : 'Failed');
 
         if ($result['success'] && !empty($result['url'])) {
+            if ($isAjax) cloudpe_jsonResponse(true, 'Console ready', ['url' => $result['url']]);
             header('Location: ' . $result['url']);
             exit;
         }
 
         $error = $result['error'] ?? 'No URL in response';
-        $_SESSION['cloudpe_message'] = 'Console URL not received: ' . $error;
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        if ($isAjax) cloudpe_jsonResponse(false, 'Console URL not received: ' . $error);
         return 'Console URL not received: ' . $error;
     } catch (Exception $e) {
         logModuleCall('cloudpe', 'ClientConsole', $params, $e->getMessage(), 'Exception');
-        $_SESSION['cloudpe_message'] = 'Error opening console: ' . $e->getMessage();
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        if ($isAjax) cloudpe_jsonResponse(false, 'Error: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientChangePassword(array $params): string
 {
+    $isAjax = cloudpe_isAjax();
+
     try {
         $api = new CloudPeAPI($params);
         $helper = new CloudPeHelper();
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
         if (empty($serverId)) {
-            $_SESSION['cloudpe_message'] = 'No VM ID found';
-            $_SESSION['cloudpe_message_type'] = 'danger';
+            if ($isAjax) cloudpe_jsonResponse(false, 'No VM ID found');
             return 'No VM ID found';
         }
 
@@ -1184,29 +1210,22 @@ function cloudpe_ClientChangePassword(array $params): string
             Capsule::table('tblhosting')->where('id', $params['serviceid'])->update([
                 'password' => encrypt($newPassword),
             ]);
-            $_SESSION['cloudpe_message'] = 'Password reset successfully. View your new password in the service details.';
-            $_SESSION['cloudpe_message_type'] = 'success';
+            if ($isAjax) cloudpe_jsonResponse(true, 'Password reset successfully. Reload page to view new password.');
             return 'success';
         }
 
         $error = $result['error'] ?? 'Unknown error';
-        $_SESSION['cloudpe_message'] = 'Failed to reset password: ' . $error;
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        if ($isAjax) cloudpe_jsonResponse(false, 'Failed to reset password: ' . $error);
         return 'Failed: ' . $error;
     } catch (Exception $e) {
-        $_SESSION['cloudpe_message'] = 'Error resetting password: ' . $e->getMessage();
-        $_SESSION['cloudpe_message_type'] = 'danger';
+        logModuleCall('cloudpe', 'ClientChangePassword', $params, $e->getMessage(), 'Exception');
+        if ($isAjax) cloudpe_jsonResponse(false, 'Error: ' . $e->getMessage());
         return 'Error: ' . $e->getMessage();
     }
 }
 
 function cloudpe_ClientArea(array $params): array
 {
-    // Get and clear session messages
-    $cloudpeMessage = $_SESSION['cloudpe_message'] ?? null;
-    $cloudpeMessageType = $_SESSION['cloudpe_message_type'] ?? 'info';
-    unset($_SESSION['cloudpe_message'], $_SESSION['cloudpe_message_type']);
-
     try {
         $serverId = getServiceCustomField($params['serviceid'], $params['pid'], 'VM ID');
 
@@ -1215,8 +1234,6 @@ function cloudpe_ClientArea(array $params): array
                 'templatefile' => 'templates/no_vm',
                 'vars' => [
                     'message' => 'VM not yet provisioned',
-                    'cloudpe_message' => $cloudpeMessage,
-                    'cloudpe_message_type' => $cloudpeMessageType,
                 ],
             ];
         }
@@ -1232,8 +1249,6 @@ function cloudpe_ClientArea(array $params): array
                 'templatefile' => 'templates/error',
                 'vars' => [
                     'error' => $result['error'] ?? 'Failed to get VM status',
-                    'cloudpe_message' => $cloudpeMessage,
-                    'cloudpe_message_type' => $cloudpeMessageType,
                 ],
             ];
         }
@@ -1305,19 +1320,14 @@ function cloudpe_ClientArea(array $params): array
                 'disk' => $diskSize,
                 'os' => $imageName,
                 'flavor_name' => $flavorName,
-                // Session messages
-                'cloudpe_message' => $cloudpeMessage,
-                'cloudpe_message_type' => $cloudpeMessageType,
             ],
         ];
-        
+
     } catch (Exception $e) {
         return [
             'templatefile' => 'templates/error',
             'vars' => [
                 'error' => $e->getMessage(),
-                'cloudpe_message' => $cloudpeMessage,
-                'cloudpe_message_type' => $cloudpeMessageType,
             ],
         ];
     }
