@@ -1,5 +1,13 @@
 # CloudPe WHMCS Module - Changelog
 
+## Version 3.44-beta.3 (2026-01-12)
+### Fixed
+- **Console URL retrieval**: Added Nova microversion header for remote-consoles endpoint
+  - `X-OpenStack-Nova-API-Version: 2.6` header now sent with remote-consoles request
+  - This fixes 404 errors on modern OpenStack deployments
+
+---
+
 ## Version 3.44-beta.2 (2026-01-12)
 ### Added
 - **VM Console Access Features**

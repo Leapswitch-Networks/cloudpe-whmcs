@@ -5,7 +5,7 @@
  * Standalone endpoint for client area VM actions.
  * Bypasses WHMCS modop=custom routing which interferes with JSON responses.
  *
- * @version 3.44-beta.2
+ * @version 3.44-beta.3
  */
 
 // Prevent direct output before headers

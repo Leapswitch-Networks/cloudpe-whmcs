@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.44-beta.2
+ * @version 3.44-beta.3
  */
 
 class CloudPeAPI
@@ -593,11 +593,13 @@ class CloudPeAPI
         $errors = [];
 
         // Method 1: New remote-consoles API (Nova microversion 2.6+)
+        // Requires X-OpenStack-Nova-API-Version header
         try {
             $response = $this->apiRequest(
                 $computeUrl . '/servers/' . $serverId . '/remote-consoles',
                 'POST',
-                ['remote_console' => ['protocol' => 'vnc', 'type' => $type]]
+                ['remote_console' => ['protocol' => 'vnc', 'type' => $type]],
+                ['X-OpenStack-Nova-API-Version: 2.6']
             );
 
             if (in_array($response['httpCode'] ?? 0, [200, 202])) {
