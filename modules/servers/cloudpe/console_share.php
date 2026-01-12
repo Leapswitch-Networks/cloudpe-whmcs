@@ -234,6 +234,15 @@ $apiUrl = $protocol . '://' . $host . $basePath . '/console_share_api.php';
         .hidden {
             display: none !important;
         }
+
+        /* Fullscreen styles */
+        .console-container:fullscreen {
+            background: #000;
+        }
+        .console-container:fullscreen .console-frame {
+            width: 100vw;
+            height: 100vh;
+        }
     </style>
 </head>
 <body>
@@ -246,13 +255,11 @@ $apiUrl = $protocol . '://' . $host . $basePath . '/console_share_api.php';
         </div>
         <div class="header-right">
             <span id="expires-text" class="expires hidden"></span>
-            <button id="btn-popout" class="btn btn-secondary hidden" onclick="openInNewTab()">
+            <button id="btn-fullscreen" class="btn btn-secondary hidden" onclick="toggleFullscreen()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                    <polyline points="15 3 21 3 21 9"/>
-                    <line x1="10" y1="14" x2="21" y2="3"/>
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
                 </svg>
-                Open in New Tab
+                Fullscreen
             </button>
             <button id="btn-reload" class="btn btn-primary hidden" onclick="loadConsole()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -341,7 +348,7 @@ $apiUrl = $protocol . '://' . $host . $basePath . '/console_share_api.php';
             document.getElementById('vm-name').classList.add('hidden');
             document.getElementById('status-badge').classList.add('hidden');
             document.getElementById('expires-text').classList.add('hidden');
-            document.getElementById('btn-popout').classList.add('hidden');
+            document.getElementById('btn-fullscreen').classList.add('hidden');
             document.getElementById('btn-reload').classList.add('hidden');
         }
 
@@ -365,7 +372,7 @@ $apiUrl = $protocol . '://' . $host . $basePath . '/console_share_api.php';
             document.getElementById('expires-text').classList.remove('hidden');
 
             // Show buttons
-            document.getElementById('btn-popout').classList.remove('hidden');
+            document.getElementById('btn-fullscreen').classList.remove('hidden');
             document.getElementById('btn-reload').classList.remove('hidden');
 
             // Load console in iframe
@@ -373,11 +380,23 @@ $apiUrl = $protocol . '://' . $host . $basePath . '/console_share_api.php';
             document.getElementById('console-frame').src = consoleUrl;
         }
 
-        function openInNewTab() {
-            if (consoleUrl) {
-                window.open(consoleUrl, '_blank', 'noopener,noreferrer');
+        function toggleFullscreen() {
+            const container = document.getElementById('console-container');
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.error('Fullscreen error:', err);
+                });
+            } else {
+                document.exitFullscreen();
             }
         }
+
+        // Kept for future reference - opens console URL directly in new tab
+        // function openInNewTab() {
+        //     if (consoleUrl) {
+        //         window.open(consoleUrl, '_blank', 'noopener,noreferrer');
+        //     }
+        // }
 
         async function loadConsole() {
             if (!token) {
