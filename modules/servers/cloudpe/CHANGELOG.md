@@ -1,5 +1,28 @@
 # CloudPe WHMCS Module - Changelog
 
+## Version 3.44-beta.2 (2026-01-12)
+### Added
+- **VM Console Access Features**
+  - View Boot Log: Display VM boot logs with configurable line count
+  - Share Console Access: Create time-limited shareable console links (1h to 30d)
+  - Manage Shares: List, view usage statistics, and revoke share tokens
+  - Standalone shared console page with dark-themed UI
+  - Token security: SHA-256 hashing, constant-time comparison, rate limiting
+
+### Fixed
+- **Console URL retrieval**: Added all 4 fallback methods for OpenStack compatibility
+  - Method 1: remote-consoles (Nova microversion 2.6+)
+  - Method 2: os-getVNCConsole (legacy)
+  - Method 3: getVNCConsole (alternative legacy)
+  - Method 4: os-getSPICEConsole (SPICE fallback)
+- Better error messages showing which console methods failed
+
+### New Files
+- `console_share.php` - Standalone page for shared console access
+- `console_share_api.php` - Public API for token validation
+
+---
+
 ## Version 3.20 (2025-12-12)
 ### Added
 - **Auto-Update System** in Admin Module

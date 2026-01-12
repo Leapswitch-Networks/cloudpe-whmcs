@@ -6,7 +6,7 @@
  * Partners generate Application Credentials from the Cloud Management Platform.
  * 
  * @author CloudPe
- * @version 3.44-beta.1
+ * @version 3.44-beta.2
  */
 
 class CloudPeAPI
@@ -575,44 +575,104 @@ class CloudPeAPI
     }
     
     /**
-     * Get VNC console URL
+     * Get VNC/SPICE console URL
+     *
+     * Tries multiple methods with fallbacks for compatibility with different OpenStack versions:
+     * 1. remote-consoles (microversion 2.6+)
+     * 2. os-getVNCConsole (legacy)
+     * 3. getVNCConsole (alternative legacy)
+     * 4. os-getSPICEConsole (SPICE fallback)
+     *
+     * @param string $serverId Server UUID
+     * @param string $type Console type (novnc, xvpvnc, spice-html5)
+     * @return array ['success' => bool, 'url' => string, 'type' => string] or ['success' => false, 'error' => string]
      */
     public function getConsoleUrl(string $serverId, string $type = 'novnc'): array
     {
+        $computeUrl = $this->getEndpoint('compute');
+        $errors = [];
+
+        // Method 1: New remote-consoles API (Nova microversion 2.6+)
         try {
-            $computeUrl = $this->getEndpoint('compute');
-            
-            // Try newer API first
             $response = $this->apiRequest(
                 $computeUrl . '/servers/' . $serverId . '/remote-consoles',
                 'POST',
                 ['remote_console' => ['protocol' => 'vnc', 'type' => $type]]
             );
-            
-            if ($response['success'] || $response['httpCode'] === 200) {
+
+            if (in_array($response['httpCode'] ?? 0, [200, 202])) {
                 $data = json_decode($response['body'], true);
                 if ($url = $data['remote_console']['url'] ?? null) {
-                    return ['success' => true, 'url' => $url];
+                    return ['success' => true, 'url' => $url, 'type' => $type];
                 }
             }
-            
-            // Fallback to legacy API
+            $errors[] = 'remote-consoles: ' . ($response['error'] ?? 'no URL');
+        } catch (Exception $e) {
+            $errors[] = 'remote-consoles: ' . $e->getMessage();
+        }
+
+        // Method 2: Legacy os-getVNCConsole action
+        try {
             $response = $this->apiRequest(
                 $computeUrl . '/servers/' . $serverId . '/action',
                 'POST',
                 ['os-getVNCConsole' => ['type' => $type]]
             );
-            
-            $data = json_decode($response['body'], true);
-            if ($url = $data['console']['url'] ?? null) {
-                return ['success' => true, 'url' => $url];
-            }
-            
-            return ['success' => false, 'error' => 'No console URL returned'];
 
+            if (in_array($response['httpCode'] ?? 0, [200, 202])) {
+                $data = json_decode($response['body'], true);
+                if ($url = $data['console']['url'] ?? null) {
+                    return ['success' => true, 'url' => $url, 'type' => $type];
+                }
+            }
+            $errors[] = 'os-getVNCConsole: ' . ($response['error'] ?? 'no URL');
         } catch (Exception $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            $errors[] = 'os-getVNCConsole: ' . $e->getMessage();
         }
+
+        // Method 3: Alternative legacy getVNCConsole action
+        try {
+            $response = $this->apiRequest(
+                $computeUrl . '/servers/' . $serverId . '/action',
+                'POST',
+                ['getVNCConsole' => ['type' => $type]]
+            );
+
+            if (in_array($response['httpCode'] ?? 0, [200, 202])) {
+                $data = json_decode($response['body'], true);
+                if ($url = $data['console']['url'] ?? null) {
+                    return ['success' => true, 'url' => $url, 'type' => $type];
+                }
+            }
+            $errors[] = 'getVNCConsole: ' . ($response['error'] ?? 'no URL');
+        } catch (Exception $e) {
+            $errors[] = 'getVNCConsole: ' . $e->getMessage();
+        }
+
+        // Method 4: SPICE console fallback
+        try {
+            $response = $this->apiRequest(
+                $computeUrl . '/servers/' . $serverId . '/action',
+                'POST',
+                ['os-getSPICEConsole' => ['type' => 'spice-html5']]
+            );
+
+            if (in_array($response['httpCode'] ?? 0, [200, 202])) {
+                $data = json_decode($response['body'], true);
+                if ($url = $data['console']['url'] ?? null) {
+                    return ['success' => true, 'url' => $url, 'type' => 'spice-html5'];
+                }
+            }
+            $errors[] = 'os-getSPICEConsole: ' . ($response['error'] ?? 'no URL');
+        } catch (Exception $e) {
+            $errors[] = 'os-getSPICEConsole: ' . $e->getMessage();
+        }
+
+        // All methods failed
+        return [
+            'success' => false,
+            'error' => 'Could not get console URL - all methods failed. Details: ' . implode('; ', $errors)
+        ];
     }
 
     /**
