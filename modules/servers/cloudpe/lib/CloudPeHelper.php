@@ -85,4 +85,109 @@ class CloudPeHelper
         
         return $labels[strtoupper($status)] ?? '<span class="label label-default">' . htmlspecialchars($status) . '</span>';
     }
+
+    /**
+     * Ensure console share tokens table exists
+     * Creates the table on first use if it doesn't exist
+     */
+    public static function ensureConsoleSharesTable(): void
+    {
+        if (!\WHMCS\Database\Capsule::schema()->hasTable('mod_cloudpe_console_shares')) {
+            \WHMCS\Database\Capsule::schema()->create('mod_cloudpe_console_shares', function ($table) {
+                $table->increments('id');
+                $table->string('token_hash', 64)->unique();
+                $table->unsignedInteger('service_id');
+                $table->string('vm_id', 255);
+                $table->unsignedInteger('created_by_user_id')->nullable();
+                $table->string('name', 100)->nullable();
+                $table->dateTime('expires_at');
+                $table->boolean('revoked')->default(false);
+                $table->dateTime('revoked_at')->nullable();
+                $table->string('revoked_reason', 255)->nullable();
+                $table->string('console_type', 20)->default('novnc');
+                $table->unsignedInteger('use_count')->default(0);
+                $table->dateTime('last_used_at')->nullable();
+                $table->string('last_used_ip', 45)->nullable();
+                $table->timestamps();
+
+                $table->index('service_id');
+                $table->index('vm_id');
+                $table->index('expires_at');
+                $table->index('created_by_user_id');
+            });
+        }
+    }
+
+    /**
+     * Generate a secure console share token
+     * Returns both raw token (for URL) and hash (for storage)
+     *
+     * @return array ['token' => string, 'hash' => string]
+     */
+    public static function generateShareToken(): array
+    {
+        $token = bin2hex(random_bytes(32)); // 64 character hex string
+        $hash = hash('sha256', $token);
+        return ['token' => $token, 'hash' => $hash];
+    }
+
+    /**
+     * Verify a share token using constant-time comparison
+     *
+     * @param string $token Raw token from URL
+     * @param string $storedHash Hash from database
+     * @return bool
+     */
+    public static function verifyShareToken(string $token, string $storedHash): bool
+    {
+        $providedHash = hash('sha256', $token);
+        return hash_equals($storedHash, $providedHash);
+    }
+
+    /**
+     * Find console share by token
+     *
+     * @param string $token Raw token from URL
+     * @return object|null Share record or null if not found
+     */
+    public static function findShareByToken(string $token): ?object
+    {
+        self::ensureConsoleSharesTable();
+        $tokenHash = hash('sha256', $token);
+        return \WHMCS\Database\Capsule::table('mod_cloudpe_console_shares')
+            ->where('token_hash', $tokenHash)
+            ->first();
+    }
+
+    /**
+     * Record console share usage
+     *
+     * @param int $shareId Share record ID
+     * @param string|null $ipAddress Client IP address
+     */
+    public static function recordShareUsage(int $shareId, ?string $ipAddress = null): void
+    {
+        \WHMCS\Database\Capsule::table('mod_cloudpe_console_shares')
+            ->where('id', $shareId)
+            ->update([
+                'use_count' => \WHMCS\Database\Capsule::raw('use_count + 1'),
+                'last_used_at' => date('Y-m-d H:i:s'),
+                'last_used_ip' => $ipAddress ? substr($ipAddress, 0, 45) : null,
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+    }
+
+    /**
+     * Expiry duration mappings
+     */
+    public static function getExpiryDurations(): array
+    {
+        return [
+            '1h' => 3600,
+            '6h' => 21600,
+            '24h' => 86400,
+            '7d' => 604800,
+            '30d' => 2592000,
+        ];
+    }
 }

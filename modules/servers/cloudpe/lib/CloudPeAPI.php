@@ -609,12 +609,51 @@ class CloudPeAPI
             }
             
             return ['success' => false, 'error' => 'No console URL returned'];
-            
+
         } catch (Exception $e) {
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }
-    
+
+    /**
+     * Get VM console output (boot logs)
+     *
+     * @param string $serverId OpenStack server UUID
+     * @param int $length Number of lines to return (0 for all, max 10000)
+     * @return array ['success' => bool, 'output' => string, 'length' => int]
+     */
+    public function getConsoleOutput(string $serverId, int $length = 100): array
+    {
+        try {
+            $computeUrl = $this->getEndpoint('compute');
+
+            // Clamp length to valid range
+            if ($length < 0) $length = 100;
+            if ($length > 10000) $length = 10000;
+
+            $response = $this->apiRequest(
+                $computeUrl . '/servers/' . $serverId . '/action',
+                'POST',
+                ['os-getConsoleOutput' => ['length' => $length ?: null]]
+            );
+
+            if (in_array($response['httpCode'] ?? 0, [200, 202])) {
+                $data = json_decode($response['body'], true);
+                $output = $data['output'] ?? '';
+                return [
+                    'success' => true,
+                    'output' => $output,
+                    'length' => substr_count($output, "\n") + 1
+                ];
+            }
+
+            return ['success' => false, 'error' => $response['error'] ?? 'Failed to get console output'];
+
+        } catch (Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
     /**
      * Assign floating IP to server
      */

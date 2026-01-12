@@ -56,7 +56,7 @@ $action = $_REQUEST['action'] ?? '';
 $serviceId = (int)($_REQUEST['service_id'] ?? 0);
 
 // Validate action
-$validActions = ['start', 'stop', 'restart', 'console', 'password'];
+$validActions = ['start', 'stop', 'restart', 'console', 'password', 'console_output', 'console_share_create', 'console_share_list', 'console_share_revoke'];
 if (!in_array($action, $validActions)) {
     logAction('invalid', $_REQUEST, 'Invalid action');
     jsonResponse(false, 'Invalid action');
@@ -205,6 +205,145 @@ try {
 
             logAction($action, ['vm_id' => $vmId], 'Password reset', 'Success');
             jsonResponse(true, 'Password reset successfully. Reload page to view new password.');
+            break;
+
+        case 'console_output':
+            $length = (int)($_REQUEST['length'] ?? 100);
+            $result = $api->getConsoleOutput($vmId, $length);
+
+            if (!$result['success']) {
+                jsonResponse(false, 'Failed to get console output: ' . ($result['error'] ?? 'Unknown error'));
+            }
+
+            logAction($action, ['vm_id' => $vmId, 'length' => $length], 'Console output retrieved', 'Success');
+            jsonResponse(true, 'Console output retrieved', [
+                'output' => $result['output'],
+                'length' => $result['length']
+            ]);
+            break;
+
+        case 'console_share_create':
+            // Ensure table exists
+            CloudPeHelper::ensureConsoleSharesTable();
+
+            $name = trim($_REQUEST['name'] ?? '');
+            $expiry = $_REQUEST['expiry'] ?? '24h';
+            $consoleType = $_REQUEST['console_type'] ?? 'novnc';
+
+            // Validate expiry
+            $expiryDurations = CloudPeHelper::getExpiryDurations();
+            if (!isset($expiryDurations[$expiry])) {
+                jsonResponse(false, 'Invalid expiry duration');
+            }
+
+            // Check VM is ACTIVE
+            $vmResult = $api->getServer($vmId);
+            if (!$vmResult['success'] || strtoupper($vmResult['server']['status'] ?? '') !== 'ACTIVE') {
+                jsonResponse(false, 'VM must be running (ACTIVE) to create a console share');
+            }
+
+            // Generate token
+            $tokenData = CloudPeHelper::generateShareToken();
+            $expiresAt = date('Y-m-d H:i:s', time() + $expiryDurations[$expiry]);
+
+            // Insert into database
+            $shareId = Capsule::table('mod_cloudpe_console_shares')->insertGetId([
+                'token_hash' => $tokenData['hash'],
+                'service_id' => $serviceId,
+                'vm_id' => $vmId,
+                'created_by_user_id' => $clientId,
+                'name' => $name ?: null,
+                'expires_at' => $expiresAt,
+                'console_type' => $consoleType,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            // Build share URL
+            $systemUrl = rtrim($GLOBALS['CONFIG']['SystemURL'] ?? '', '/');
+            $shareUrl = $systemUrl . '/modules/servers/cloudpe/console_share.php?token=' . $tokenData['token'];
+
+            logAction($action, ['vm_id' => $vmId, 'share_id' => $shareId], 'Console share created', 'Success');
+            jsonResponse(true, 'Console share created', [
+                'id' => $shareId,
+                'name' => $name,
+                'token' => $tokenData['token'], // Only returned once!
+                'share_url' => $shareUrl,
+                'expires_at' => $expiresAt,
+                'console_type' => $consoleType,
+            ]);
+            break;
+
+        case 'console_share_list':
+            CloudPeHelper::ensureConsoleSharesTable();
+
+            $includeRevoked = filter_var($_REQUEST['include_revoked'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+            $query = Capsule::table('mod_cloudpe_console_shares')
+                ->where('service_id', $serviceId)
+                ->where('vm_id', $vmId);
+
+            if (!$includeRevoked) {
+                $query->where('revoked', false);
+            }
+
+            $shares = $query->orderBy('created_at', 'desc')->get();
+
+            $shareList = [];
+            $now = time();
+            foreach ($shares as $share) {
+                $expiresAt = strtotime($share->expires_at);
+                $shareList[] = [
+                    'id' => $share->id,
+                    'name' => $share->name,
+                    'expires_at' => $share->expires_at,
+                    'console_type' => $share->console_type,
+                    'use_count' => $share->use_count,
+                    'last_used_at' => $share->last_used_at,
+                    'created_at' => $share->created_at,
+                    'revoked' => (bool)$share->revoked,
+                    'is_expired' => $expiresAt < $now,
+                ];
+            }
+
+            jsonResponse(true, 'Console shares retrieved', ['shares' => $shareList]);
+            break;
+
+        case 'console_share_revoke':
+            CloudPeHelper::ensureConsoleSharesTable();
+
+            $shareId = (int)($_REQUEST['share_id'] ?? 0);
+            $reason = trim($_REQUEST['reason'] ?? 'Revoked by user');
+
+            if ($shareId <= 0) {
+                jsonResponse(false, 'Invalid share ID');
+            }
+
+            // Verify share belongs to this service
+            $share = Capsule::table('mod_cloudpe_console_shares')
+                ->where('id', $shareId)
+                ->where('service_id', $serviceId)
+                ->first();
+
+            if (!$share) {
+                jsonResponse(false, 'Share not found');
+            }
+
+            if ($share->revoked) {
+                jsonResponse(false, 'Share already revoked');
+            }
+
+            Capsule::table('mod_cloudpe_console_shares')
+                ->where('id', $shareId)
+                ->update([
+                    'revoked' => true,
+                    'revoked_at' => date('Y-m-d H:i:s'),
+                    'revoked_reason' => substr($reason, 0, 255),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ]);
+
+            logAction($action, ['vm_id' => $vmId, 'share_id' => $shareId], 'Console share revoked', 'Success');
+            jsonResponse(true, 'Console share revoked');
             break;
     }
 } catch (Exception $e) {
